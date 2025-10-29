@@ -123,5 +123,3 @@ Sinta-se livre para usar, aprender e contribuir com melhorias.
 ---
 
 **Via Soluções** — *Inteligência e automação para uma gestão moderna de contratos e prazos.*
-```
-
