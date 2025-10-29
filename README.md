@@ -1,12 +1,3 @@
-Perfeito, Marco ✅
-
-Abaixo está o **README.md 100% puro em Markdown**, sem HTML, pronto para **copiar e colar direto no seu código** — compatível com o GitHub e com visual profissional e limpo.
-
-Você pode simplesmente substituir o arquivo atual (`README.md`) por este conteúdo:
-
----
-
-```markdown
 # 🚀 Via Soluções
 
 **Automatizando a gestão de contratos e tarefas com inteligência artificial**
