@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:viaflow/screens/dashboard_screen.dart';
-import 'package:viaflow/screens/contracts_screen.dart';
-import 'package:viaflow/screens/notifications_screen.dart';
-import 'package:viaflow/screens/profile_screen.dart';
-import 'package:viaflow/services/user_service.dart';
-import 'package:viaflow/services/contract_service.dart';
-import 'package:viaflow/services/task_service.dart';
-import 'package:viaflow/services/notification_service.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/screens/dashboard_screen.dart';
+import 'package:viasolucoes/screens/contracts_screen.dart';
+import 'package:viasolucoes/screens/clients_screen.dart';
+import 'package:viasolucoes/screens/profile_screen.dart';
+import 'package:viasolucoes/services/user_service.dart';
+import 'package:viasolucoes/services/contract_service.dart';
+import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/services/client_service.dart';
+import 'package:viasolucoes/theme.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -30,16 +30,12 @@ class _MainScreenState extends State<MainScreen> {
     final userService = UserService();
     final contractService = ContractService();
     final taskService = TaskService();
-    final notificationService = NotificationService();
+    final clientService = ClientService();
 
     await userService.initializeSampleData();
     await contractService.initializeSampleData();
     await taskService.initializeSampleData();
-
-    final userId = await userService.getCurrentUserId();
-    if (userId != null) {
-      await notificationService.initializeSampleData(userId);
-    }
+    await clientService.initializeSampleData();
 
     setState(() => _isInitialized = true);
   }
@@ -47,7 +43,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),
     ContractsScreen(),
-    NotificationsScreen(),
+    ClientsScreen(),
     ProfileScreen(),
   ];
 
@@ -88,9 +84,9 @@ class _MainScreenState extends State<MainScreen> {
               label: 'Contratos',
             ),
             NavigationDestination(
-              icon: Icon(Icons.notifications_outlined),
-              selectedIcon: Icon(Icons.notifications, color: ViaColors.primary),
-              label: 'Notificações',
+              icon: Icon(Icons.people_alt_outlined),
+              selectedIcon: Icon(Icons.people_alt, color: ViaColors.primary),
+              label: 'Clientes',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:viaflow/models/user.dart';
-import 'package:viaflow/services/user_service.dart';
-import 'package:viaflow/screens/login_screen.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/models/user.dart';
+import 'package:viasolucoes/services/user_service.dart';
+import 'package:viasolucoes/screens/login_screen.dart';
+import 'package:viasolucoes/theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/services/contract_service.dart';
-import 'package:viaflow/screens/contract_detail_screen.dart';
-import 'package:viaflow/screens/create_contract_screen.dart';
-import 'package:viaflow/theme.dart';
-import 'package:viaflow/widgets/contract_card.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/services/contract_service.dart';
+import 'package:viasolucoes/screens/contract_detail_screen.dart';
+import 'package:viasolucoes/screens/create_contract_screen.dart';
+import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/widgets/contract_card.dart';
 
 class ContractsScreen extends StatefulWidget {
   const ContractsScreen({super.key});

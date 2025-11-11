@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:viaflow/models/notification.dart';
-import 'package:viaflow/services/notification_service.dart';
-import 'package:viaflow/services/user_service.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/models/notification.dart';
+import 'package:viasolucoes/services/notification_service.dart';
+import 'package:viasolucoes/services/user_service.dart';
+import 'package:viasolucoes/theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});

@@ -1,5 +1,5 @@
-import 'package:viaflow/models/user.dart';
-import 'package:viaflow/services/storage_service.dart';
+import 'package:viasolucoes/models/user.dart';
+import 'package:viasolucoes/services/storage_service.dart';
 
 class UserService {
   final StorageService _storage = StorageService();

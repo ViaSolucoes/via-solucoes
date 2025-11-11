@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/models/task.dart';
-import 'package:viaflow/services/contract_service.dart';
-import 'package:viaflow/services/task_service.dart';
-import 'package:viaflow/theme.dart';
-import 'package:viaflow/widgets/task_item.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/models/task.dart';
+import 'package:viasolucoes/services/contract_service.dart';
+import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/widgets/task_item.dart';
 
 class ContractDetailScreen extends StatefulWidget {
   final String contractId;

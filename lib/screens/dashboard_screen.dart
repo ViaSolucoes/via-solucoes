@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/models/task.dart';
-import 'package:viaflow/services/contract_service.dart';
-import 'package:viaflow/services/task_service.dart';
-import 'package:viaflow/theme.dart';
-import 'package:viaflow/widgets/stat_card.dart';
-import 'package:viaflow/widgets/quick_action_button.dart';
-import 'package:viaflow/widgets/recent_contract_item.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/models/task.dart';
+import 'package:viasolucoes/services/contract_service.dart';
+import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/widgets/stat_card.dart';
+import 'package:viasolucoes/widgets/quick_action_button.dart';
+import 'package:viasolucoes/widgets/recent_contract_item.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

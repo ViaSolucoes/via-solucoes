@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:viaflow/services/user_service.dart';
-import 'package:viaflow/screens/main_screen.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/services/user_service.dart';
+import 'package:viasolucoes/screens/main_screen.dart';
+import 'package:viasolucoes/theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

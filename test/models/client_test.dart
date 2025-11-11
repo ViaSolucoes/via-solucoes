@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pi_5o_semestre_main/models/client.dart';
+import 'package:viasolucoes/models/client.dart';
 
 void main() {
   group('Client Model Tests', () {

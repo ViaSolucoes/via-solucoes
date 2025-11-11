@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:viaflow/models/task.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/models/task.dart';
+import 'package:viasolucoes/theme.dart';
 
 class TaskItem extends StatelessWidget {
   final Task task;

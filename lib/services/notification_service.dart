@@ -1,5 +1,5 @@
-import 'package:viaflow/models/notification.dart';
-import 'package:viaflow/services/storage_service.dart';
+import 'package:viasolucoes/models/notification.dart';
+import 'package:viasolucoes/services/storage_service.dart';
 
 class NotificationService {
   final StorageService _storage = StorageService();

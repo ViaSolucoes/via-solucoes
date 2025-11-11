@@ -1,5 +1,5 @@
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/services/storage_service.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/services/storage_service.dart';
 
 class ContractService {
   final StorageService _storage = StorageService();

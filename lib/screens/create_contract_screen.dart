@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/services/contract_service.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/services/contract_service.dart';
+import 'package:viasolucoes/theme.dart';
 
 class CreateContractScreen extends StatefulWidget {
   const CreateContractScreen({super.key});

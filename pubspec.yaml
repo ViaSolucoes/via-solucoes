@@ -1,4 +1,4 @@
-name: pi_5o_semestre_main
+name: viasolucoes
 description: "Via Soluções is a modern Flutter app designed for seamless management of road contracts and projects, blending elegant design with intuitive functionality for a professional and fluid user experience."
 publish_to: "none"
 version: 1.0.0
@@ -10,6 +10,7 @@ dependencies:
   file_picker: '>=8.1.2'
   flutter:
     sdk: flutter
+  uuid: ^4.4.0
   cupertino_icons: ^1.0.8
   google_fonts: ^6.1.0
   shared_preferences: ^2.0.0

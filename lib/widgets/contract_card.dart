@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:viaflow/models/contract.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/theme.dart';
 
 class ContractCard extends StatelessWidget {
   final Contract contract;

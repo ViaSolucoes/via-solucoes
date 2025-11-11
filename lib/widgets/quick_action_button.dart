@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:viaflow/theme.dart';
+import 'package:viasolucoes/theme.dart';
 
 class QuickActionButton extends StatelessWidget {
   final String label;

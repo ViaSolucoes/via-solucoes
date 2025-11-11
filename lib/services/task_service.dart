@@ -1,5 +1,5 @@
-import 'package:viaflow/models/task.dart';
-import 'package:viaflow/services/storage_service.dart';
+import 'package:viasolucoes/models/task.dart';
+import 'package:viasolucoes/services/storage_service.dart';
 
 class TaskService {
   final StorageService _storage = StorageService();
