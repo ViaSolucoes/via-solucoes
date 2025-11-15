@@ -5,8 +5,10 @@ import 'package:viasolucoes/theme.dart';
 import 'package:viasolucoes/widgets/client_card.dart';
 import 'package:viasolucoes/widgets/client_search_field.dart';
 import 'package:viasolucoes/widgets/client_filter_bar.dart';
+
 import 'create_client_screen.dart';
 import 'edit_client_screen.dart';
+import 'client_detail_screen.dart'; // ✅ IMPORT NECESSÁRIO!
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key});
@@ -74,7 +76,6 @@ class _ClientsScreenState extends State<ClientsScreen> {
     _showSnackBar('Cliente removido com sucesso.');
   }
 
-  /// ✅ Atualizado para o modelo imutável (usa copyWith)
   void _toggleClientStatus(Client client) {
     final updatedClient = client.copyWith(
       isActive: !client.isActive,
@@ -102,10 +103,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         title: Text(title, style: Theme.of(context).textTheme.titleLarge),
-        content:
-        Text(message, style: Theme.of(context).textTheme.bodyMedium),
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Text(message,
+            style: Theme.of(context).textTheme.bodyMedium),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -203,8 +204,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     ? const Center(
                   child: Text(
                     'Nenhum cliente encontrado.',
-                    style:
-                    TextStyle(color: ViaColors.textSecondary),
+                    style: TextStyle(
+                        color: ViaColors.textSecondary),
                   ),
                 )
                     : ListView.builder(
@@ -219,7 +220,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
                       onToggleStatus: () =>
                           _toggleClientStatus(client),
                       onTap: () {
-                        // Futuro: tela de detalhes do cliente
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ClientDetailScreen(client: client),
+                          ),
+                        );
                       },
                     );
                   },

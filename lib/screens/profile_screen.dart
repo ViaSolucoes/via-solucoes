@@ -107,8 +107,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         _buildSettingItem(Icons.dark_mode_outlined, 'Modo escuro', 2),
         const SizedBox(height: 12),
-        _buildSettingItem(Icons.notifications_outlined, 'Notificações', 3),
-        const SizedBox(height: 12),
         _buildSettingItem(Icons.language_outlined, 'Idioma', 4),
         const SizedBox(height: 32),
         SizedBox(
