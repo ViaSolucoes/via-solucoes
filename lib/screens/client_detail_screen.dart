@@ -1,207 +1,166 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:viasolucoes/models/client.dart';
+import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/screens/create_contract_screen.dart';
+import 'package:viasolucoes/services/contract_service.dart';
 import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/widgets/contract_card.dart';
+import 'package:viasolucoes/screens/contract_detail_screen.dart';
 
-class ClientDetailScreen extends StatelessWidget {
+class ClientDetailScreen extends StatefulWidget {
   final Client client;
 
   const ClientDetailScreen({super.key, required this.client});
 
   @override
+  State<ClientDetailScreen> createState() => _ClientDetailScreenState();
+}
+
+class _ClientDetailScreenState extends State<ClientDetailScreen> {
+  final _contractService = ContractService();
+  List<Contract> _contracts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContracts();
+  }
+
+  Future<void> _loadContracts() async {
+    setState(() => _isLoading = true);
+
+    final all = await _contractService.getAll();
+
+    // Apenas contratos do cliente
+    _contracts = all.where((c) => c.clientId == widget.client.id).toList();
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _createContract() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateContractScreen(
+          client: widget.client, // ← Corrigido
+        ),
+      ),
+    );
+
+    if (result != null) {
+      await _loadContracts();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final client = widget.client;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          client.companyName,
-          style: theme.textTheme.titleLarge,
-        ),
-        elevation: 0,
-        actions: [
-          IconButton(
-            onPressed: () {
-              // abrir edição futuramente
-            },
-            icon: const Icon(Icons.edit, color: ViaColors.primary),
-          ),
-        ],
+        title: Text(client.companyName),
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionTitle("Informações Gerais", theme),
-            _buildInfoCard(
-              [
-                _infoRow(Icons.location_city, "Rodovia", client.highway),
-                _infoRow(Icons.business, "CNPJ", client.cnpj),
-                _infoRow(Icons.person, "Responsável",
-                    "${client.contactPerson} (${client.contactRole})"),
-                _infoRow(Icons.email, "E-mail", client.email),
-                _infoRow(Icons.phone, "Telefone", client.phone),
-                _infoRow(Icons.location_on, "Endereço", client.address),
-                _infoRow(Icons.note_alt, "Observações",
-                    client.notes.isEmpty ? "Nenhuma" : client.notes),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            _buildSectionTitle("Status", theme),
-            _buildStatusCard(client, theme),
-
-            const SizedBox(height: 24),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSectionTitle("Contratos Vinculados", theme),
-                TextButton.icon(
-                  onPressed: () {
-                    // abrir criação de contrato
-                  },
-                  icon: const Icon(Icons.add, color: ViaColors.primary),
-                  label: const Text("Novo Contrato"),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: ViaColors.primary,
+        onPressed: _createContract,
+        child: const Icon(Icons.add),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // INFORMAÇÕES DO CLIENTE
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: ViaColors.primary.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
-
-            _buildContractsList(),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ------- COMPONENTES ----------
-
-  Widget _buildSectionTitle(String title, ThemeData theme) {
-    return Text(
-      title,
-      style: theme.textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w600,
-        color: ViaColors.primary,
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(List<Widget> children) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: children),
-      ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: ViaColors.primary, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 14, color: ViaColors.textSecondary)),
+                Text(
+                  client.companyName,
+                  style: Theme.of(context).textTheme.displaySmall,
+                ),
+                const SizedBox(height: 8),
+
+                // 🔥 CAMPO CORRIGIDO
+                Text(
+                  client.contactPerson,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 4),
+                Text(
+                  client.phone,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
                 const SizedBox(height: 2),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        color: ViaColors.textPrimary,
-                        fontWeight: FontWeight.w500)),
+                Text(
+                  client.email,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ],
             ),
-          ),
+          ).animate().fadeIn(duration: 400.ms),
+
+          const SizedBox(height: 30),
+          Text("Contratos", style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_contracts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 80),
+              child: Column(
+                children: [
+                  Icon(Icons.folder_open, size: 64, color: ViaColors.textSecondary),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Nenhum contrato encontrado",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: ViaColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._contracts.asMap().entries.map(
+                  (entry) {
+                final index = entry.key;
+                final contract = entry.value;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ContractCard(
+                    contract: contract,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ContractDetailScreen(contractId: contract.id),
+                      ),
+                    ),
+                  )
+                      .animate()
+                      .fadeIn(delay: (index * 60).ms)
+                      .slideX(begin: 0.15),
+                );
+              },
+            ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatusCard(Client client, ThemeData theme) {
-    final bool active = client.isActive;
-
-    return Card(
-      elevation: 0,
-      color: theme.cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              active ? Icons.check_circle : Icons.cancel,
-              color: active ? ViaColors.success : ViaColors.error,
-              size: 30,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                active ? "Cliente Ativo" : "Cliente Inativo",
-                style: theme.textTheme.titleMedium?.copyWith(
-                    color: active ? ViaColors.success : ViaColors.error),
-              ),
-            ),
-            Switch(
-              value: active,
-              activeColor: ViaColors.success,
-              onChanged: (_) {
-                // 👉 Integraremos com toggle futuramente
-              },
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContractsList() {
-    final mockContracts = [
-      {"title": "Contrato de Manutenção 2024", "status": "Ativo"},
-      {"title": "Contrato de Monitoramento 2023", "status": "Encerrado"},
-    ];
-
-    return Column(
-      children: mockContracts.map((c) {
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: ListTile(
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(c["title"]!,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 16)),
-            subtitle: Text(
-              c["status"]!,
-              style: TextStyle(
-                color: c["status"] == "Ativo"
-                    ? ViaColors.success
-                    : ViaColors.textSecondary,
-              ),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // abrir detalhes do contrato futuramente
-            },
-          ),
-        );
-      }).toList(),
     );
   }
 }

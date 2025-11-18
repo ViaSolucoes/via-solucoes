@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/screens/dashboard_screen.dart';
-import 'package:viasolucoes/screens/contracts_screen.dart';
 import 'package:viasolucoes/screens/clients_screen.dart';
 import 'package:viasolucoes/screens/profile_screen.dart';
 import 'package:viasolucoes/services/user_service.dart';
@@ -42,8 +41,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    ContractsScreen(),
-    ClientsScreen(),
+    ClientsScreen(),  // ← Contratos agora ficam dentro do cliente
     ProfileScreen(),
   ];
 
@@ -77,11 +75,6 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.dashboard_outlined),
               selectedIcon: Icon(Icons.dashboard, color: ViaColors.primary),
               label: 'Início',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.folder_outlined),
-              selectedIcon: Icon(Icons.folder, color: ViaColors.primary),
-              label: 'Contratos',
             ),
             NavigationDestination(
               icon: Icon(Icons.people_alt_outlined),

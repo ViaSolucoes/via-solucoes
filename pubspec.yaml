@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   file_picker: '>=8.1.2'
+  path_provider: ^2.0.15
   flutter:
     sdk: flutter
   uuid: ^4.4.0

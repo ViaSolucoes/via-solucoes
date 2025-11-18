@@ -1,11 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:viasolucoes/models/client.dart';
 import 'package:viasolucoes/models/contract.dart';
 import 'package:viasolucoes/services/contract_service.dart';
 import 'package:viasolucoes/theme.dart';
 
 class CreateContractScreen extends StatefulWidget {
-  const CreateContractScreen({super.key});
+  final Client client;
+
+  const CreateContractScreen({
+    super.key,
+    required this.client,
+  });
 
   @override
   State<CreateContractScreen> createState() => _CreateContractScreenState();
@@ -15,420 +25,222 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
   final _formKey = GlobalKey<FormState>();
   final _contractService = ContractService();
 
-  final _nomeController = TextEditingController();
-  final _clienteController = TextEditingController();
-  final _responsavelController = TextEditingController();
-  final _prazoController = TextEditingController();
-  final _descricaoController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _assignedUserController = TextEditingController();
 
-  PlatformFile? _selectedFile;
-  bool _isLoading = false;
-  DateTime? _selectedDate;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _clienteController.dispose();
-    _responsavelController.dispose();
-    _prazoController.dispose();
-    _descricaoController.dispose();
-    super.dispose();
-  }
+  File? _selectedFile;
+  String? _selectedFileName;
+
+  bool _isSaving = false;
 
   Future<void> _pickFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'docx'],
-        allowMultiple: false,
-      );
+    final result = await FilePicker.platform.pickFiles();
 
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFile = result.files.first;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao selecionar arquivo: \$e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate:
-          _selectedDate ?? DateTime.now().add(const Duration(days: 30)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(
-              context,
-            ).colorScheme.copyWith(primary: ViaColors.primary),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null && picked != _selectedDate) {
+    if (result != null && result.files.single.path != null) {
       setState(() {
-        _selectedDate = picked;
-        _prazoController.text =
-            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+        _selectedFile = File(result.files.single.path!);
+        _selectedFileName = result.files.single.name;
       });
     }
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '\$bytes B';
-    if (bytes < 1024 * 1024) return '\${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '\${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  Future<String?> _saveFileLocally(File file) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final savePath = '${directory.path}/${_selectedFileName ?? 'contrato'}';
+
+    final savedFile = await file.copy(savePath);
+    return savedFile.path;
   }
 
-  bool get _canSave =>
-      _formKey.currentState?.validate() == true &&
-      _selectedFile != null &&
-      !_isLoading;
-
   Future<void> _saveContract() async {
-    if (!_canSave) return;
+    if (!_formKey.currentState!.validate()) return;
+    if (_startDate == null || _endDate == null) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isSaving = true);
 
-    try {
-      // Criar novo contrato
-      final contract = Contract(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        clientName: _clienteController.text.trim(),
-        description:
-            '${_nomeController.text.trim()}: ${_descricaoController.text.trim()}',
-        status: 'draft',
-        assignedUserId: _responsavelController.text.trim(),
-        startDate: DateTime.now(),
-        endDate: _selectedDate!,
-        progressPercentage: 0.0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+    String? savedFilePath;
 
-      // Salvar contrato (em produção, aqui seria enviado o arquivo junto)
-      await _contractService.createContract(contract);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Contrato "\${_nomeController.text}" criado com sucesso!',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao salvar contrato: \$e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    if (_selectedFile != null) {
+      savedFilePath = await _saveFileLocally(_selectedFile!);
     }
+
+    final now = DateTime.now();
+
+    final contract = Contract(
+      id: const Uuid().v4(),
+      clientId: widget.client.id,
+      clientName: widget.client.companyName,
+      description: _descriptionController.text.trim(),
+      status: 'active',
+      assignedUserId: _assignedUserController.text.trim(),
+      startDate: _startDate!,
+      endDate: _endDate!,
+      progressPercentage: 0,
+      createdAt: now,
+      updatedAt: now,
+      fileUrl: savedFilePath,
+      fileName: _selectedFileName,
+      hasFile: savedFilePath != null,
+    );
+
+    await _contractService.add(contract);
+
+    setState(() => _isSaving = false);
+
+    if (mounted) Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novo Contrato'),
-        elevation: 0,
-        backgroundColor: ViaColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton(
-            onPressed: _canSave ? _saveContract : null,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Text(
-                    'Salvar',
-                    style: TextStyle(
-                      color: _canSave ? Colors.white : Colors.white54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 16),
-        ],
+        title: Text("Contrato para ${widget.client.companyName}"),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: _isSaving
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: ListView(
             children: [
-              // Nome do Contrato
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Informações Gerais',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _nomeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nome do Contrato *',
-                          hintText: 'Ex: Pavimentação Rua Principal',
-                          prefixIcon: Icon(Icons.description),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Nome do contrato é obrigatório';
-                          }
-                          return null;
-                        },
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _clienteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Cliente *',
-                          hintText: 'Ex: Prefeitura Municipal',
-                          prefixIcon: Icon(Icons.business),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Cliente é obrigatório';
-                          }
-                          return null;
-                        },
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _responsavelController,
-                        decoration: const InputDecoration(
-                          labelText: 'Responsável *',
-                          hintText: 'Ex: João Silva',
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Responsável é obrigatório';
-                          }
-                          return null;
-                        },
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _prazoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Prazo *',
-                          hintText: 'Selecione a data limite',
-                          prefixIcon: Icon(Icons.calendar_today),
-                          suffixIcon: Icon(Icons.arrow_drop_down),
-                        ),
-                        readOnly: true,
-                        onTap: _selectDate,
-                        validator: (value) {
-                          if (_selectedDate == null) {
-                            return 'Prazo é obrigatório';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _descricaoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Descrição',
-                          hintText: 'Descreva os detalhes do contrato...',
-                          prefixIcon: Icon(Icons.notes),
-                        ),
-                        maxLines: 3,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ],
-                  ),
-                ),
+              Text(
+                "Informações do Contrato",
+                style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
 
-              // Upload de Arquivo
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Documento do Contrato',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Anexe o documento do contrato (PDF ou DOCX)',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+              // Descrição
+              TextFormField(
+                controller: _descriptionController,
+                decoration:
+                const InputDecoration(labelText: "Descrição"),
+                validator: (v) => v == null || v.isEmpty
+                    ? "Digite uma descrição"
+                    : null,
+              ),
+              const SizedBox(height: 16),
 
-                      // Área de upload
-                      InkWell(
-                        onTap: _pickFile,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: _selectedFile != null
-                                  ? ViaColors.success
-                                  : Theme.of(context).colorScheme.outline
-                                        .withValues(alpha: 0.3),
-                              width: 2,
-                              style: _selectedFile != null
-                                  ? BorderStyle.solid
-                                  : BorderStyle.none,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            color: _selectedFile != null
-                                ? ViaColors.success.withValues(alpha: 0.1)
-                                : (isDark
-                                      ? Colors.grey.withValues(alpha: 0.1)
-                                      : Colors.grey.withValues(alpha: 0.05)),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                _selectedFile != null
-                                    ? Icons.check_circle
-                                    : Icons.cloud_upload_outlined,
-                                size: 48,
-                                color: _selectedFile != null
-                                    ? ViaColors.success
-                                    : Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(height: 12),
-                              if (_selectedFile != null) ...[
-                                Text(
-                                  _selectedFile!.name,
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: ViaColors.success,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatFileSize(_selectedFile!.size),
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: ViaColors.success),
-                                ),
-                                const SizedBox(height: 12),
-                                TextButton.icon(
-                                  onPressed: _pickFile,
-                                  icon: const Icon(Icons.swap_horiz),
-                                  label: const Text('Alterar arquivo'),
-                                ),
-                              ] else ...[
-                                Text(
-                                  'Toque para selecionar arquivo',
-                                  style: Theme.of(context).textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'PDF ou DOCX • Máximo 50MB',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
+              // Responsável
+              TextFormField(
+                controller: _assignedUserController,
+                decoration:
+                const InputDecoration(labelText: "Responsável"),
+                validator: (v) => v == null || v.isEmpty
+                    ? "Informe o responsável"
+                    : null,
+              ),
+              const SizedBox(height: 16),
 
-                      if (_selectedFile == null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: ViaColors.accent.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: ViaColors.accent.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: ViaColors.accent,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'O documento é obrigatório para salvar o contrato',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: ViaColors.accent),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
+              // Datas
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDatePicker(
+                      label: "Início",
+                      value: _startDate,
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          initialDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setState(() => _startDate = date);
+                        }
+                      },
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildDatePicker(
+                      label: "Fim",
+                      value: _endDate,
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          initialDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setState(() => _endDate = date);
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
 
+              const SizedBox(height: 24),
+
+              // Upload de arquivo
+              Text(
+                "Contrato (opcional)",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+
+              ElevatedButton.icon(
+                onPressed: _pickFile,
+                icon: const Icon(Icons.upload_file),
+                label: const Text("Selecionar arquivo"),
+              ),
+
+              if (_selectedFileName != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  "Selecionado: $_selectedFileName",
+                  style: const TextStyle(color: ViaColors.primary),
+                ),
+              ],
+
               const SizedBox(height: 32),
+
+              ElevatedButton(
+                onPressed: _saveContract,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  "Salvar Contrato",
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding:
+        const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: ViaColors.textSecondary.withOpacity(0.4),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          value != null
+              ? "${value.day}/${value.month}/${value.year}"
+              : label,
+          style: TextStyle(
+            color:
+            value != null ? Colors.black : ViaColors.textSecondary,
           ),
         ),
       ),

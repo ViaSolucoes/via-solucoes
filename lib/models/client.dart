@@ -31,6 +31,9 @@ class Client {
     required this.updatedAt,
   });
 
+  // -------------------------------
+  // ✔ JSON Serialization
+  // -------------------------------
   Map<String, dynamic> toJson() => {
     'id': id,
     'companyName': companyName,
@@ -48,23 +51,29 @@ class Client {
     'updatedAt': updatedAt.toIso8601String(),
   };
 
+  // -------------------------------
+  // ✔ JSON Deserialization (com proteção contra null)
+  // -------------------------------
   factory Client.fromJson(Map<String, dynamic> json) => Client(
-    id: json['id'] as String,
-    companyName: json['companyName'] as String,
-    highway: json['highway'] as String,
-    cnpj: json['cnpj'] as String,
-    email: json['email'] as String,
-    phone: json['phone'] as String,
-    contactPerson: json['contactPerson'] as String,
-    contactRole: json['contactRole'] as String,
-    address: json['address'] as String,
-    department: json['department'] as String,
-    notes: json['notes'] as String,
-    isActive: json['isActive'] as bool,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
+    id: json['id'] ?? '',
+    companyName: json['companyName'] ?? '',
+    highway: json['highway'] ?? '',
+    cnpj: json['cnpj'] ?? '',
+    email: json['email'] ?? '',
+    phone: json['phone'] ?? '',
+    contactPerson: json['contactPerson'] ?? '',
+    contactRole: json['contactRole'] ?? '',
+    address: json['address'] ?? '',
+    department: json['department'] ?? '',
+    notes: json['notes'] ?? '',
+    isActive: json['isActive'] ?? true,
+    createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+    updatedAt: DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
   );
 
+  // -------------------------------
+  // ✔ copyWith() seguro e completo
+  // -------------------------------
   Client copyWith({
     String? id,
     String? companyName,
