@@ -45,6 +45,7 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
       );
 
       Navigator.pop(context, client);
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Cliente cadastrado com sucesso!'),
@@ -56,62 +57,50 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cadastrar Cliente'),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              Text(
-                'Preencha os dados do cliente:',
-                style: textTheme.titleMedium,
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(_companyNameController, 'Nome da Empresa', true),
-              _buildTextField(_highwayController, 'Rodovia', true),
-              _buildTextField(_cnpjController, 'CNPJ', true),
-              _buildTextField(_emailController, 'E-mail', false, keyboardType: TextInputType.emailAddress),
-              _buildTextField(_phoneController, 'Telefone', false, keyboardType: TextInputType.phone),
-              _buildTextField(_contactPersonController, 'Responsável', true),
-              _buildTextField(_roleController, 'Cargo do Responsável', false),
-              _buildTextField(_addressController, 'Endereço', false),
-              _buildTextField(_departmentController, 'Setor', false),
-              _buildTextField(_notesController, 'Observações', false, maxLines: 3),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _saveClient,
-                icon: const Icon(Icons.save),
-                label: const Text('Salvar Cliente'),
-              ),
-            ],
-          ),
+  Widget _sectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 16),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
-  Widget _buildTextField(
+  Widget _card(Widget child) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: ViaColors.primary.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _field(
       TextEditingController controller,
-      String label,
-      bool required, {
-        TextInputType keyboardType = TextInputType.text,
+      String label, {
+        bool required = false,
         int maxLines = 1,
+        TextInputType keyboardType = TextInputType.text,
       }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: TextFormField(
         controller: controller,
-        keyboardType: keyboardType,
         maxLines: maxLines,
+        keyboardType: keyboardType,
         validator: (value) {
           if (required && (value == null || value.trim().isEmpty)) {
             return 'Campo obrigatório';
@@ -121,6 +110,87 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
         decoration: InputDecoration(
           labelText: label,
           hintText: 'Digite $label',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Cadastrar Cliente'),
+        centerTitle: false,
+        elevation: 0,
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // ======================
+            // 🔵 SEÇÃO: Dados Básicos
+            // ======================
+            _sectionTitle("Dados da Concessionária"),
+            _card(
+              Column(
+                children: [
+                  _field(_companyNameController, "Nome da Empresa", required: true),
+                  _field(_highwayController, "Rodovia", required: true),
+                  _field(_cnpjController, "CNPJ", required: true),
+                ],
+              ),
+            ),
+
+            // ======================
+            // 📞 SEÇÃO: Contatos
+            // ======================
+            _sectionTitle("Informações de Contato"),
+            _card(
+              Column(
+                children: [
+                  _field(_contactPersonController, "Responsável", required: true),
+                  _field(_roleController, "Cargo do Responsável"),
+                  _field(_emailController, "E-mail",
+                      keyboardType: TextInputType.emailAddress),
+                  _field(_phoneController, "Telefone",
+                      keyboardType: TextInputType.phone),
+                ],
+              ),
+            ),
+
+            // ======================
+            // 🏢 SEÇÃO: Empresa
+            // ======================
+            _sectionTitle("Dados Complementares"),
+            _card(
+              Column(
+                children: [
+                  _field(_addressController, "Endereço"),
+                  _field(_departmentController, "Setor"),
+                  _field(_notesController, "Observações", maxLines: 3),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ======================
+            // 💾 BOTÃO
+            // ======================
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _saveClient,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text("Salvar Cliente"),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

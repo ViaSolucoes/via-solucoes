@@ -1,7 +1,6 @@
-enum ContractStatus { draft, active, completed, overdue, cancelled }
-
 class Contract {
   final String id;
+  final String clientId;
   final String clientName;
   final String description;
   final String status;
@@ -12,8 +11,14 @@ class Contract {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // 📌 Campos opcionais de arquivo
+  final String? fileUrl;
+  final String? fileName;
+  final bool hasFile;
+
   Contract({
     required this.id,
+    required this.clientId,
     required this.clientName,
     required this.description,
     required this.status,
@@ -23,10 +28,14 @@ class Contract {
     required this.progressPercentage,
     required this.createdAt,
     required this.updatedAt,
+    this.fileUrl,
+    this.fileName,
+    this.hasFile = false,
   });
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'clientId': clientId,
     'clientName': clientName,
     'description': description,
     'status': status,
@@ -36,23 +45,35 @@ class Contract {
     'progressPercentage': progressPercentage,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    'fileUrl': fileUrl,
+    'fileName': fileName,
+    'hasFile': hasFile,
   };
 
   factory Contract.fromJson(Map<String, dynamic> json) => Contract(
-    id: json['id'] as String,
-    clientName: json['clientName'] as String,
-    description: json['description'] as String,
-    status: json['status'] as String,
-    assignedUserId: json['assignedUserId'] as String,
-    startDate: DateTime.parse(json['startDate'] as String),
-    endDate: DateTime.parse(json['endDate'] as String),
-    progressPercentage: (json['progressPercentage'] as num).toDouble(),
-    createdAt: DateTime.parse(json['createdAt'] as String),
-    updatedAt: DateTime.parse(json['updatedAt'] as String),
+    id: json['id'] ?? '',
+    clientId: json['clientId'] ?? '',
+    clientName: json['clientName'] ?? '',
+    description: json['description'] ?? '',
+    status: json['status'] ?? '',
+    assignedUserId: json['assignedUserId'] ?? '',
+    startDate:
+    DateTime.tryParse(json['startDate'] ?? '') ?? DateTime.now(),
+    endDate: DateTime.tryParse(json['endDate'] ?? '') ?? DateTime.now(),
+    progressPercentage:
+    (json['progressPercentage'] ?? 0).toDouble(),
+    createdAt:
+    DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+    updatedAt:
+    DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
+    fileUrl: json['fileUrl'],
+    fileName: json['fileName'],
+    hasFile: json['hasFile'] ?? false,
   );
 
   Contract copyWith({
     String? id,
+    String? clientId,
     String? clientName,
     String? description,
     String? status,
@@ -62,21 +83,24 @@ class Contract {
     double? progressPercentage,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) => Contract(
-    id: id ?? this.id,
-    clientName: clientName ?? this.clientName,
-    description: description ?? this.description,
-    status: status ?? this.status,
-    assignedUserId: assignedUserId ?? this.assignedUserId,
-    startDate: startDate ?? this.startDate,
-    endDate: endDate ?? this.endDate,
-    progressPercentage: progressPercentage ?? this.progressPercentage,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
-
-  bool get isOverdue =>
-      DateTime.now().isAfter(endDate) && status != 'completed';
-  bool get isDueSoon =>
-      endDate.difference(DateTime.now()).inDays <= 3 && status != 'completed';
+    String? fileUrl,
+    String? fileName,
+    bool? hasFile,
+  }) =>
+      Contract(
+        id: id ?? this.id,
+        clientId: clientId ?? this.clientId,
+        clientName: clientName ?? this.clientName,
+        description: description ?? this.description,
+        status: status ?? this.status,
+        assignedUserId: assignedUserId ?? this.assignedUserId,
+        startDate: startDate ?? this.startDate,
+        endDate: endDate ?? this.endDate,
+        progressPercentage: progressPercentage ?? this.progressPercentage,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        fileUrl: fileUrl ?? this.fileUrl,
+        fileName: fileName ?? this.fileName,
+        hasFile: hasFile ?? this.hasFile,
+      );
 }
