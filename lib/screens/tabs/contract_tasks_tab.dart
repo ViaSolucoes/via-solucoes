@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/models/contract.dart';
-import 'package:viasolucoes/services/task_service.dart';
 import 'package:viasolucoes/models/task.dart';
-import 'package:viasolucoes/widgets/task_item.dart';
+import 'package:viasolucoes/services/task_service.dart';
 import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/widgets/task_item.dart';
+import 'package:viasolucoes/screens/tasks/create_task_screen.dart';
+
+import '../tasks/edit_task_screen.dart';
 
 class ContractTasksTab extends StatefulWidget {
   final Contract contract;
@@ -26,14 +29,46 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
   }
 
   Future<void> _loadTasks() async {
-    _loading = true;
-    setState(() {});
+    setState(() => _loading = true);
+    final data = await _taskService.getByContract(widget.contract.id);
+    setState(() {
+      _tasks = data;
+      _loading = false;
+    });
+  }
 
-    final all = await _taskService.getAll();
-    _tasks = all.where((t) => t.contractId == widget.contract.id).toList();
+  Future<void> _toggle(Task task) async {
+    final updated = task.copyWith(isCompleted: !task.isCompleted);
+    await _taskService.update(updated);
+    _loadTasks();
+  }
 
-    _loading = false;
-    setState(() {});
+  Future<void> _delete(Task task) async {
+    await _taskService.delete(task.id);
+    _loadTasks();
+  }
+
+  Future<void> _add() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            CreateTaskScreen(contractId: widget.contract.id),
+      ),
+    );
+
+    if (result == true) _loadTasks();
+  }
+
+  Future<void> _edit(Task task) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditTaskScreen(task: task),
+      ),
+    );
+
+    if (result == true) _loadTasks();
   }
 
   @override
@@ -42,22 +77,32 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_tasks.isEmpty) {
-      return Center(
-        child: Text(
-          "Nenhuma tarefa cadastrada",
-          style: TextStyle(color: ViaColors.textSecondary),
+    return Stack(
+      children: [
+        ListView.separated(
+          padding: const EdgeInsets.all(20),
+          itemCount: _tasks.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (_, i) {
+            final task = _tasks[i];
+            return TaskItem(
+              task: task,
+              onToggle: () => _toggle(task),
+              onDelete: () => _delete(task),
+              onEdit: () => _edit(task),
+            );
+          },
         ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadTasks,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _tasks.length,
-        itemBuilder: (_, i) => TaskItem(task: _tasks[i]),
-      ),
+        Positioned(
+          right: 20,
+          bottom: 20,
+          child: FloatingActionButton(
+            backgroundColor: ViaColors.primary,
+            onPressed: _add,
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 }

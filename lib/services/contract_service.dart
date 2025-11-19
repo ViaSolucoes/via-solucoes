@@ -5,6 +5,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/models/task.dart'; // NECESSÁRIO PARA recalculateProgress
+
+import 'package:viasolucoes/extensions/iterable_extensions.dart';
 
 class ContractService {
   static const String _fileName = 'contracts.json';
@@ -58,7 +61,7 @@ class ContractService {
   /// Busca contrato por ID
   Future<Contract?> getById(String id) async {
     final all = await getAll();
-    return all.where((c) => c.id == id).cast<Contract?>().firstOrNull;
+    return all.where((c) => c.id == id).firstOrNull;
   }
 
   /// Busca contratos por cliente
@@ -67,7 +70,7 @@ class ContractService {
     return all.where((c) => c.clientId == clientId).toList();
   }
 
-  /// Atualiza contrato preservando fileUrl/fileName/hasFile
+  /// Atualiza um contrato
   Future<void> update(Contract updated) async {
     final all = await getAll();
     final index = all.indexWhere((c) => c.id == updated.id);
@@ -80,7 +83,7 @@ class ContractService {
     }
   }
 
-  /// Retorna quantidade de contratos por status
+  /// Estatísticas
   Future<Map<String, int>> getStats() async {
     final all = await getAll();
 
@@ -91,14 +94,14 @@ class ContractService {
     };
   }
 
-  /// Remove um contrato
+  /// Deletar contrato
   Future<void> delete(String id) async {
     final all = await getAll();
     all.removeWhere((c) => c.id == id);
     await _saveAll(all);
   }
 
-  /// Inicializa dados de exemplo se não existir arquivo
+  /// Dados iniciais
   Future<void> initializeSampleData() async {
     final file = await _getLocalFile();
     if (await file.exists()) return;
@@ -124,8 +127,23 @@ class ContractService {
 
     await add(sample);
   }
-}
 
-extension FirstOrNullExtension<E> on Iterable<E> {
-  E? get firstOrNull => isEmpty ? null : first;
+  /// 🔥 Recalcular progresso baseado nas tarefas
+  Future<void> recalculateProgress(String contractId, List<Task> tasks) async {
+    final contract = await getById(contractId);
+    if (contract == null) return;
+
+    if (tasks.isEmpty) {
+      final updated = contract.copyWith(progressPercentage: 0);
+      await update(updated);
+      return;
+    }
+
+    final completed = tasks.where((t) => t.isCompleted).length;
+
+    final progress = (completed / tasks.length) * 100;
+
+    final updated = contract.copyWith(progressPercentage: progress);
+    await update(updated);
+  }
 }

@@ -4,82 +4,69 @@ import 'package:viasolucoes/theme.dart';
 
 class TaskItem extends StatelessWidget {
   final Task task;
-  final VoidCallback? onTap;
+  final VoidCallback onToggle;
+  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   const TaskItem({
     super.key,
     required this.task,
-    this.onTap,
+    required this.onToggle,
+    this.onDelete,
+    this.onEdit
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Ícone da tarefa
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: ViaColors.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.check_circle_outline,
-                  color: ViaColors.primary, size: 26),
-            ),
-
-            const SizedBox(width: 14),
-
-            // Conteúdo
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Título da tarefa
-                  Text(
-                    task.title,
-                    style: Theme.of(context).textTheme.titleMedium,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: task.isCompleted
+            ? ViaColors.success.withValues(alpha: 0.1)
+            : Colors.white,
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: task.isCompleted,
+            onChanged: (_) => onToggle(),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    decoration: task.isCompleted
+                        ? TextDecoration.lineThrough
+                        : null,
                   ),
-
-                  const SizedBox(height: 4),
-
-                  // Descrição (opcional)
-                  if (task.description != null &&
-                      task.description!.trim().isNotEmpty)
-                    Text(
-                      task.description!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: ViaColors.textSecondary),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                ),
+                if (task.description != null &&
+                    task.description!.trim().isNotEmpty)
+                  Text(
+                    task.description!,
+                    style: TextStyle(
+                      color: ViaColors.textSecondary,
+                      fontSize: 13,
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-
-            const SizedBox(width: 10),
-
-            const Icon(Icons.arrow_forward_ios,
-                size: 18, color: ViaColors.textSecondary),
-          ],
-        ),
+          ),
+          if (onDelete != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: onDelete,
+            ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: onEdit,
+          ),
+        ],
       ),
     );
   }

@@ -33,8 +33,16 @@ class _ContractDetailScreenState extends State<ContractDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    _tabController.addListener(() async {
+      if (_tabController.index == 0) {
+        await _loadContract();
+      }
+    });
+
     _loadContract();
   }
+
 
   Future<void> _loadContract() async {
     setState(() => _isLoading = true);
