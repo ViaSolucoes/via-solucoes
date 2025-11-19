@@ -36,14 +36,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final stats = await _contractService.getStats();
     final contracts = await _contractService.getAll();
     final tasks = await _taskService.getAll();
-    final pending = tasks
-        .where((t) => t.status == 'pending' || t.status == 'in_progress')
-        .length;
 
     setState(() {
       _stats = stats;
       _recentContracts = contracts.take(3).toList();
-      _pendingTasks = pending;
+      _pendingTasks = tasks.length; // ← corrigido
       _isLoading = false;
     });
   }
@@ -121,29 +118,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             children: [
               Expanded(
-                child:
-                    QuickActionButton(
-                          label: 'Novo Contrato',
-                          icon: Icons.add_circle_outline,
-                          color: ViaColors.primary,
-                          onTap: () {},
-                        )
-                        .animate()
-                        .fadeIn(delay: 700.ms)
-                        .scale(begin: const Offset(0.8, 0.8)),
+                child: QuickActionButton(
+                  label: 'Novo Contrato',
+                  icon: Icons.add_circle_outline,
+                  color: ViaColors.primary,
+                  onTap: () {},
+                ).animate().fadeIn(delay: 700.ms).scale(begin: const Offset(0.8, 0.8)),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child:
-                    QuickActionButton(
-                          label: 'Nova Tarefa',
-                          icon: Icons.task_alt,
-                          color: ViaColors.accent,
-                          onTap: () {},
-                        )
-                        .animate()
-                        .fadeIn(delay: 800.ms)
-                        .scale(begin: const Offset(0.8, 0.8)),
+                child: QuickActionButton(
+                  label: 'Nova Tarefa',
+                  icon: Icons.task_alt,
+                  color: ViaColors.accent,
+                  onTap: () {},
+                ).animate().fadeIn(delay: 800.ms).scale(begin: const Offset(0.8, 0.8)),
               ),
             ],
           ),
