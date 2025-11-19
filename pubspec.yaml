@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   file_picker: '>=8.1.2'
+  open_filex: ^4.3.4
   path_provider: ^2.0.15
   flutter:
     sdk: flutter
