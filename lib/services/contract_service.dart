@@ -6,12 +6,13 @@ import 'package:uuid/uuid.dart';
 
 import 'package:viasolucoes/models/contract.dart';
 import 'package:viasolucoes/models/task.dart'; // NECESSÁRIO PARA recalculateProgress
-
 import 'package:viasolucoes/extensions/iterable_extensions.dart';
+import 'package:viasolucoes/services/log_service.dart'; // ✅ Import do LogService
 
 class ContractService {
   static const String _fileName = 'contracts.json';
   final _uuid = const Uuid();
+  final _logService = LogService(); // ✅ Instância para registrar logs
 
   /// Obtém o arquivo físico onde será salvo o JSON
   Future<File> _getLocalFile() async {
@@ -56,6 +57,13 @@ class ContractService {
     final all = await getAll();
     all.add(contract);
     await _saveAll(all);
+
+    // ✅ Registrar log
+    await _logService.add(
+      contractId: contract.id,
+      action: 'created',
+      description: 'Contrato criado: ${contract.clientName}',
+    );
   }
 
   /// Busca contrato por ID
@@ -78,6 +86,13 @@ class ContractService {
     if (index != -1) {
       all[index] = updated.copyWith(updatedAt: DateTime.now());
       await _saveAll(all);
+
+      // ✅ Registrar log
+      await _logService.add(
+        contractId: updated.id,
+        action: 'updated',
+        description: 'Contrato atualizado (${updated.status})',
+      );
     } else {
       print("⚠ Tentativa de atualizar contrato inexistente: ${updated.id}");
     }
@@ -97,8 +112,19 @@ class ContractService {
   /// Deletar contrato
   Future<void> delete(String id) async {
     final all = await getAll();
+    final contract = await getById(id);
+
     all.removeWhere((c) => c.id == id);
     await _saveAll(all);
+
+    // ✅ Registrar log
+    if (contract != null) {
+      await _logService.add(
+        contractId: contract.id,
+        action: 'deleted',
+        description: 'Contrato excluído: ${contract.clientName}',
+      );
+    }
   }
 
   /// Dados iniciais
@@ -140,10 +166,17 @@ class ContractService {
     }
 
     final completed = tasks.where((t) => t.isCompleted).length;
-
     final progress = (completed / tasks.length) * 100;
 
     final updated = contract.copyWith(progressPercentage: progress);
     await update(updated);
+
+    // ✅ Registrar log de progresso
+    await _logService.add(
+      contractId: contract.id,
+      action: 'progress_updated',
+      description:
+      'Progresso atualizado para ${progress.toStringAsFixed(0)}%',
+    );
   }
 }

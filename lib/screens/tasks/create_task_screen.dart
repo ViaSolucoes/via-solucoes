@@ -39,7 +39,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       updatedAt: now,
     );
 
-    await _taskService.create(task);
+    await _taskService.add(task);
 
     if (mounted) Navigator.pop(context, true);
   }

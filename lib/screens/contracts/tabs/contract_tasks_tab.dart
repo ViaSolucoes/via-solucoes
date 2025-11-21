@@ -5,8 +5,7 @@ import 'package:viasolucoes/services/task_service.dart';
 import 'package:viasolucoes/theme.dart';
 import 'package:viasolucoes/widgets/task_item.dart';
 import 'package:viasolucoes/screens/tasks/create_task_screen.dart';
-
-import '../tasks/edit_task_screen.dart';
+import '../../tasks/edit_task_screen.dart';
 
 class ContractTasksTab extends StatefulWidget {
   final Contract contract;
@@ -52,8 +51,7 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            CreateTaskScreen(contractId: widget.contract.id),
+        builder: (_) => CreateTaskScreen(contractId: widget.contract.id),
       ),
     );
 
@@ -80,7 +78,7 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
     return Stack(
       children: [
         ListView.separated(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
           itemCount: _tasks.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (_, i) {
@@ -93,13 +91,17 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
             );
           },
         ),
+
         Positioned(
-          right: 20,
-          bottom: 20,
+          bottom: 24,
+          right: 24,
           child: FloatingActionButton(
             backgroundColor: ViaColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.add_rounded, size: 30),
             onPressed: _add,
-            child: const Icon(Icons.add),
           ),
         ),
       ],
