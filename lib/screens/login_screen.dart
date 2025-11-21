@@ -86,12 +86,12 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 80),
                 Text(
-                      'Via Soluções',
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: ViaColors.primary,
-                      ),
-                      textAlign: TextAlign.center,
-                    )
+                  'Via Soluções',
+                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                    color: ViaColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
+                )
                     .animate()
                     .fadeIn(duration: 600.ms)
                     .slideY(begin: -0.3, end: 0),
@@ -105,56 +105,56 @@ class _LoginScreenState extends State<LoginScreen> {
                 ).animate().fadeIn(delay: 200.ms, duration: 600.ms),
                 const SizedBox(height: 80),
                 TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail',
-                        hintText: 'seu@email.com',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                    )
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'E-mail',
+                    hintText: 'seu@email.com',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                )
                     .animate()
                     .fadeIn(delay: 400.ms, duration: 600.ms)
                     .slideX(begin: -0.2, end: 0),
                 const SizedBox(height: 20),
                 TextField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Senha',
-                        hintText: '••••••••',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
-                      onSubmitted: (_) => _login(),
-                    )
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Senha',
+                    hintText: '••••••••',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                  onSubmitted: (_) => _login(),
+                )
                     .animate()
                     .fadeIn(delay: 500.ms, duration: 600.ms)
                     .slideX(begin: -0.2, end: 0),
                 const SizedBox(height: 32),
                 SizedBox(
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark
-                              ? ViaColors.secondary
-                              : ViaColors.primary,
-                          disabledBackgroundColor: ViaColors.textSecondary,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark
+                          ? ViaColors.secondary
+                          : ViaColors.primary,
+                      disabledBackgroundColor: ViaColors.textSecondary,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(
+                          ViaColors.white,
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    ViaColors.white,
-                                  ),
-                                ),
-                              )
-                            : const Text('Entrar'),
                       ),
                     )
+                        : const Text('Entrar'),
+                  ),
+                )
                     .animate()
                     .fadeIn(delay: 600.ms, duration: 600.ms)
                     .scale(begin: const Offset(0.9, 0.9)),

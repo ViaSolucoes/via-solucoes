@@ -6,7 +6,6 @@ class ClientService {
   final _uuid = const Uuid();
 
   Future<void> initializeSampleData() async {
-    // Simula um pequeno atraso como se estivesse carregando do banco
     await Future.delayed(const Duration(milliseconds: 300));
 
     if (_clients.isEmpty) {
@@ -45,6 +44,15 @@ class ClientService {
         ),
       ]);
     }
+  }
+
+  // ✅ Método adicionado — agora compatível com create_contract_screen.dart
+  Future<List<Client>> getAll() async {
+    // Garante que há dados simulados
+    if (_clients.isEmpty) {
+      await initializeSampleData();
+    }
+    return _clients;
   }
 
   List<Client> getClients() => _clients;
