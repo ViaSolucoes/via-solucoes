@@ -4,10 +4,13 @@ import 'package:intl/intl.dart';
 
 import 'package:viasolucoes/models/client.dart';
 import 'package:viasolucoes/models/contract.dart';
+
 import 'package:viasolucoes/screens/contracts/contract_detail_screen.dart';
 import 'package:viasolucoes/screens/contracts/edit_contract_screen.dart';
 import 'package:viasolucoes/screens/contracts/create_contract_screen.dart';
-import 'package:viasolucoes/services/contract_service.dart';
+
+import 'package:viasolucoes/services/supabase/contract_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/client_service_supabase.dart';
 import 'package:viasolucoes/theme.dart';
 
 class ClientDetailScreen extends StatefulWidget {
@@ -20,7 +23,9 @@ class ClientDetailScreen extends StatefulWidget {
 }
 
 class _ClientDetailScreenState extends State<ClientDetailScreen> {
-  final _contractService = ContractService();
+  final ContractServiceSupabase _contractService = ContractServiceSupabase();
+  final ClientServiceSupabase _clientService = ClientServiceSupabase();
+
   final _dateFormat = DateFormat('dd/MM/yyyy');
 
   List<Contract> _contracts = [];
@@ -32,15 +37,32 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     _loadContracts();
   }
 
+  // ============================================================
+  // 🔵 CARREGAR CONTRATOS DO SUPABASE + COMPLETAR clientName
+  // ============================================================
   Future<void> _loadContracts() async {
     setState(() => _loadingContracts = true);
-    final data = await _contractService.getByClient(widget.client.id);
-    setState(() {
-      _contracts = data;
-      _loadingContracts = false;
-    });
+
+    try {
+      // 🔵 Buscar contratos deste cliente pelo Supabase
+      final data = await _contractService.getByClient(widget.client.id);
+
+      // 🔵 Preencher clientName manualmente
+      final enriched = data.map((c) {
+        return c.copyWith(clientName: widget.client.companyName);
+      }).toList();
+
+      setState(() => _contracts = enriched);
+    } catch (e) {
+      print("❌ Erro ao carregar contratos do Supabase: $e");
+    }
+
+    setState(() => _loadingContracts = false);
   }
 
+  // ============================================================
+  // 🔵 CRIAR CONTRATO PARA ESTE CLIENTE
+  // ============================================================
   Future<void> _createContract() async {
     final result = await Navigator.push<bool>(
       context,
@@ -54,6 +76,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     }
   }
 
+  // ============================================================
+  // 🔵 EDITAR CONTRATO
+  // ============================================================
   Future<void> _editContract(Contract contract) async {
     final result = await Navigator.push<bool>(
       context,
@@ -67,6 +92,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     }
   }
 
+  // ============================================================
+  // 🔵 UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     final client = widget.client;
@@ -86,12 +114,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // =============== CARD PRINCIPAL DO CLIENTE ==================
             _buildClientCard(client),
-
             const SizedBox(height: 24),
 
-            // =============== CABEÇALHO DE CONTRATOS =====================
+            // HEADER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -108,7 +134,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ),
             const SizedBox(height: 8),
 
-            // =============== LISTA DE CONTRATOS =========================
+            // LISTA
             if (_loadingContracts)
               const Padding(
                 padding: EdgeInsets.only(top: 40),
@@ -145,6 +171,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 )
                     .toList(),
               ),
+
             const SizedBox(height: 80),
           ],
         ),
@@ -152,9 +179,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // CARD DO CLIENTE
-  // ---------------------------------------------------------------------------
+  // ============================================================
+  // 🔵 CARD DO CLIENTE
+  // ============================================================
   Widget _buildClientCard(Client client) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -169,6 +196,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
         ],
       ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -179,21 +207,19 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          if (client.highway != null && client.highway!.isNotEmpty)
-            Text(
-              client.highway!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ViaColors.textSecondary,
-              ),
+          Text(
+            client.highway,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: ViaColors.textSecondary,
             ),
+          ),
           const SizedBox(height: 8),
-          if (client.cnpj != null && client.cnpj!.isNotEmpty)
-            Text(
-              'CNPJ: ${client.cnpj}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: ViaColors.textSecondary,
-              ),
+          Text(
+            'CNPJ: ${client.cnpj}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: ViaColors.textSecondary,
             ),
+          ),
           const Divider(height: 24),
           Row(
             children: [
@@ -201,7 +227,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  client.contactPerson ?? 'Contato não informado',
+                  client.contactPerson,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
@@ -214,7 +240,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  client.phone ?? 'Telefone não informado',
+                  client.phone,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: ViaColors.textSecondary,
                   ),
@@ -229,7 +255,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  client.email ?? 'E-mail não informado',
+                  client.email,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: ViaColors.textSecondary,
                   ),
@@ -242,12 +268,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // ITEM DE CONTRATO
-  // ---------------------------------------------------------------------------
+  // ============================================================
+  // 🔵 ITEM DE CONTRATO — igual ao seu
+  // ============================================================
   Widget _buildContractItem(Contract contract) {
-    final endDate =
-    contract.endDate != null ? _dateFormat.format(contract.endDate) : '-';
+    final endDate = _dateFormat.format(contract.endDate);
 
     Color statusColor;
     String statusLabel;
@@ -270,7 +295,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
 
     return GestureDetector(
       onTap: () {
-        // abre detalhes completos do contrato
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -292,10 +316,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ),
           ],
         ),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // título + status + botão editar
+            // título + status + editar
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -333,7 +358,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 6),
+
             Row(
               children: [
                 const Icon(Icons.event_outlined, size: 16),
@@ -346,7 +373,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 8),
+
             // barra de progresso
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
@@ -358,6 +387,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 AlwaysStoppedAnimation<Color>(ViaColors.primary),
               ),
             ),
+
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,

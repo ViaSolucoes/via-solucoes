@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:viasolucoes/models/user.dart';
-import 'package:viasolucoes/services/user_service.dart';
-import 'package:viasolucoes/screens/login_screen.dart';
+import 'package:viasolucoes/services/supabase/user_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/user_auth_service.dart';
 import 'package:viasolucoes/theme.dart';
 
 class ProfileInfoTab extends StatefulWidget {
@@ -13,9 +12,15 @@ class ProfileInfoTab extends StatefulWidget {
 }
 
 class _ProfileInfoTabState extends State<ProfileInfoTab> {
-  final _userService = UserService();
+  final _auth = UserAuthService();
+  final _userService = UserServiceSupabase();
+
   ViaSolutionsUser? _user;
-  bool _isLoading = true;
+  bool _loading = true;
+
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _addressController;
 
   @override
   void initState() {
@@ -24,214 +29,168 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
   }
 
   Future<void> _loadUser() async {
-    final userId = await _userService.getCurrentUserId();
+    final id = _auth.getCurrentUserId();
 
-    if (userId != null) {
-      final user = await _userService.getById(userId);
-      setState(() {
-        _user = user;
-        _isLoading = false;
-      });
-    } else {
-      // 👇 evita loading infinito
-      setState(() {
-        _user = null;
-        _isLoading = false;
-      });
+    if (id == null) {
+      setState(() => _loading = false);
+      return;
     }
+
+    final user = await _userService.getProfile(id);
+
+    setState(() {
+      _user = user;
+      _nameController = TextEditingController(text: user?.name ?? "");
+      _phoneController = TextEditingController(text: user?.phone ?? "");
+      _addressController = TextEditingController(text: user?.address ?? "");
+      _loading = false;
+    });
   }
-  Future<void> _logout() async {
-    await _userService.logout();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+
+  Future<void> _save() async {
+    if (_user == null) return;
+
+    setState(() => _loading = true);
+
+    final updated = _user!.copyWith(
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      address: _addressController.text.trim(),
+      updatedAt: DateTime.now(),
     );
+
+    await _userService.updateProfile(updated);
+
+    setState(() => _loading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Perfil atualizado com sucesso!")),
+    );
+
+    _loadUser(); // recarrega os dados
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_user == null) {
-      return Center(
-        child: Text(
-          "Nenhum usuário encontrado.",
-          style: TextStyle(color: Colors.grey.shade600),
-        ),
-      );
+      return const Center(child: Text("Usuário não encontrado."));
     }
-    final bgCard = Theme.of(context).cardColor;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-      children: [
-        // FOTO / AVATAR
-        Center(
-          child: Container(
-            width: 110,
-            height: 110,
-            decoration: BoxDecoration(
-              color: ViaColors.primary.withOpacity(0.12),
-              shape: BoxShape.circle,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // TÍTULO
+          const Text(
+            "Informações do Perfil",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
             ),
-            child: Center(
-              child: Text(
-                _user!.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .take(2)
-                    .join()
-                    .toUpperCase(),
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                  color: ViaColors.primary,
+          ),
+          const SizedBox(height: 20),
+
+          // CAMPOS EDITÁVEIS
+          _buildInput("Nome", _nameController),
+          const SizedBox(height: 18),
+
+          _buildInput("Telefone", _phoneController),
+          const SizedBox(height: 18),
+
+          _buildInput("Endereço", _addressController),
+          const SizedBox(height: 25),
+
+          // INFO NÃO EDITÁVEL
+          _buildInfoCard(_user!),
+
+          const SizedBox(height: 32),
+
+          // BOTÃO SALVAR
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.save),
+              label: const Text("Salvar alterações"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ViaColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
-          ).animate().scale(duration: 400.ms, delay: 100.ms),
-        ),
-
-        const SizedBox(height: 16),
-
-        // NOME / CARGO
-        Text(
-          _user!.name,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _user!.role,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 15,
-            color: Colors.grey.shade600,
-          ),
-        ),
+        ],
+      ),
+    );
+  }
 
-        const SizedBox(height: 28),
+  // ----------------------------------------------------------------------
+  // COMPONENTES DE UI
+  // ----------------------------------------------------------------------
 
-        // INFORMAÇÕES DO PERFIL
-        _sectionTitle("Informações"),
-        _infoCard(
-          icon: Icons.email_outlined,
-          label: 'E-mail',
-          value: _user!.email,
-        ),
-        const SizedBox(height: 12),
-        _infoCard(
-          icon: Icons.badge_outlined,
-          label: 'Função',
-          value: _user!.role,
-        ),
-
-        const SizedBox(height: 28),
-
-        // CONFIGURAÇÕES
-        _sectionTitle("Configurações"),
-        _settingCard(Icons.dark_mode_outlined, 'Modo escuro'),
-        const SizedBox(height: 12),
-        _settingCard(Icons.language_outlined, 'Idioma'),
-
-        const SizedBox(height: 32),
-
-        // LOGOUT
-        ElevatedButton.icon(
-          onPressed: _logout,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: ViaColors.error,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+  Widget _buildInput(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label(label),
+        TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
             ),
           ),
-          icon: const Icon(Icons.logout),
-          label: const Text('Sair'),
         ),
       ],
     );
   }
 
-  Widget _sectionTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  Widget _infoCard({required IconData icon, required String label, required String value}) {
+  Widget _buildInfoCard(ViaSolutionsUser user) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, 3),
-          )
+          ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: ViaColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-                const SizedBox(height: 4),
-                Text(value,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
+          _label("E-mail"),
+          Text(user.email, style: const TextStyle(fontSize: 15)),
+          const SizedBox(height: 14),
+
+          _label("Função"),
+          Text(user.role, style: const TextStyle(fontSize: 15)),
         ],
       ),
     );
   }
 
-  Widget _settingCard(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey.shade600),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
+  Widget _label(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: Colors.black87,
       ),
     );
   }

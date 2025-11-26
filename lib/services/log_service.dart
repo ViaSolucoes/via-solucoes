@@ -19,7 +19,7 @@ class LogService {
   }
 
   // ---------------------------------------------------------------
-  // Lê todos os logs
+  // Lê todos os logs (modelo novo)
   // ---------------------------------------------------------------
   Future<List<LogEntry>> getAll() async {
     try {
@@ -33,7 +33,9 @@ class LogService {
       final data = jsonDecode(content);
       if (data is! List) return [];
 
-      return data.map<LogEntry>((e) => LogEntry.fromJson(e)).toList();
+      return data
+          .map<LogEntry>((e) => LogEntry.fromMap(e))
+          .toList();
     } catch (e) {
       print("Erro ao carregar logs: $e");
       return [];
@@ -41,42 +43,51 @@ class LogService {
   }
 
   // ---------------------------------------------------------------
-  // Salva lista completa
+  // Salva lista completa (modelo novo)
   // ---------------------------------------------------------------
   Future<void> _saveAll(List<LogEntry> logs) async {
     final file = await _getLocalFile();
-    final jsonContent =
-    jsonEncode(logs.map((l) => l.toJson()).toList());
+    final jsonContent = jsonEncode(
+      logs.map((l) => l.toMap()).toList(),
+    );
     await file.writeAsString(jsonContent);
   }
 
   // ---------------------------------------------------------------
-  // Adiciona um novo log
+  // Adiciona novo log (modelo novo)
   // ---------------------------------------------------------------
   Future<void> add({
-    required String contractId,
-    required String action,
+    required LogModule module,
+    required LogAction action,
+    required String entityType,
+    String? entityId,
     required String description,
+    Map<String, dynamic>? metadata,
+    required String userId,
   }) async {
     final logs = await getAll();
 
     final log = LogEntry(
       id: _uuid.v4(),
-      contractId: contractId,
+      userId: userId,
+      module: module,
       action: action,
+      entityType: entityType,
+      entityId: entityId,
       description: description,
+      metadata: metadata,
       timestamp: DateTime.now(),
     );
 
-    logs.insert(0, log); // adiciona no topo -> mais recente primeiro
+    logs.insert(0, log);
     await _saveAll(logs);
   }
 
   // ---------------------------------------------------------------
-  // Retorna apenas logs de um contrato específico
+  // Retorna logs por entidade (antigo "por contrato")
   // ---------------------------------------------------------------
-  Future<List<LogEntry>> getByContract(String contractId) async {
+  Future<List<LogEntry>> getByEntity(String entityId) async {
     final logs = await getAll();
-    return logs.where((l) => l.contractId == contractId).toList();
+    return logs.where((l) => l.entityId == entityId).toList();
   }
 }

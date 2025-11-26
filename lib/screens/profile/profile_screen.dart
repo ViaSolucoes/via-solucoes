@@ -62,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         controller: _tabController,
         children: const [
           ProfileInfoTab(),
-          LogTab(),
+          ProfileLogTab(),
         ],
       ),
     );
