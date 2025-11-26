@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+
 import 'package:viasolucoes/models/task.dart';
-import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/services/supabase/task_service_supabase.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   final String contractId;
@@ -14,7 +15,7 @@ class CreateTaskScreen extends StatefulWidget {
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _taskService = TaskService();
+  final _taskService = TaskServiceSupabase();
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -31,10 +32,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     final task = Task(
       id: const Uuid().v4(),
       contractId: widget.contractId,
-      title: _titleController.text,
+      title: _titleController.text.trim(),
       description: _descriptionController.text.trim().isEmpty
           ? null
           : _descriptionController.text.trim(),
+      isCompleted: false,
       createdAt: now,
       updatedAt: now,
     );
@@ -65,8 +67,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
-                decoration:
-                const InputDecoration(labelText: "Descrição (opcional)"),
+                decoration: const InputDecoration(
+                    labelText: "Descrição (opcional)"),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),

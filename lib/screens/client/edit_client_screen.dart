@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/models/client.dart';
+import 'package:viasolucoes/services/supabase/client_service_supabase.dart';
 import 'package:viasolucoes/theme.dart';
 
 class EditClientScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class EditClientScreen extends StatefulWidget {
 
 class _EditClientScreenState extends State<EditClientScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _clientService = ClientServiceSupabase();
 
   late TextEditingController _companyNameController;
   late TextEditingController _highwayController;
@@ -24,6 +26,8 @@ class _EditClientScreenState extends State<EditClientScreen> {
   late TextEditingController _addressController;
   late TextEditingController _departmentController;
   late TextEditingController _notesController;
+
+  bool _loading = false;
 
   @override
   void initState() {
@@ -40,8 +44,15 @@ class _EditClientScreenState extends State<EditClientScreen> {
     _notesController = TextEditingController(text: widget.client.notes);
   }
 
-  void _updateClient() {
-    if (_formKey.currentState!.validate()) {
+  // ============================================================
+  // 🔵 ATUALIZAR CLIENTE NO SUPABASE
+  // ============================================================
+  Future<void> _updateClient() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+
+    try {
       final updatedClient = widget.client.copyWith(
         companyName: _companyNameController.text.trim(),
         highway: _highwayController.text.trim(),
@@ -56,7 +67,10 @@ class _EditClientScreenState extends State<EditClientScreen> {
         updatedAt: DateTime.now(),
       );
 
-      Navigator.pop(context, updatedClient);
+      // 🔥 Atualizar no Supabase
+      await _clientService.update(updatedClient);
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -66,7 +80,21 @@ class _EditClientScreenState extends State<EditClientScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
+
+      Navigator.pop(context, true);
+
+    } catch (e) {
+      print("❌ Erro ao atualizar cliente: $e");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Erro ao atualizar cliente.'),
+          backgroundColor: ViaColors.error,
+        ),
+      );
     }
+
+    setState(() => _loading = false);
   }
 
   Widget _sectionTitle(String text) {
@@ -127,6 +155,9 @@ class _EditClientScreenState extends State<EditClientScreen> {
     );
   }
 
+  // ============================================================
+  // 🔵 UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,73 +166,75 @@ class _EditClientScreenState extends State<EditClientScreen> {
         centerTitle: false,
         elevation: 0,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // ======================
-            // 🔵 SEÇÃO: Dados Básicos
-            // ======================
-            _sectionTitle("Dados da Concessionária"),
-            _card(
-              Column(
-                children: [
-                  _field(_companyNameController, "Nome da Empresa", required: true),
-                  _field(_highwayController, "Rodovia", required: true),
-                  _field(_cnpjController, "CNPJ", required: true),
-                ],
-              ),
-            ),
-
-            // ======================
-            // 📞 SEÇÃO: Contatos
-            // ======================
-            _sectionTitle("Informações de Contato"),
-            _card(
-              Column(
-                children: [
-                  _field(_contactPersonController, "Responsável", required: true),
-                  _field(_roleController, "Cargo do Responsável"),
-                  _field(_emailController, "E-mail", keyboardType: TextInputType.emailAddress),
-                  _field(_phoneController, "Telefone", keyboardType: TextInputType.phone),
-                ],
-              ),
-            ),
-
-            // ======================
-            // 🏢 SEÇÃO: Empresa
-            // ======================
-            _sectionTitle("Dados Complementares"),
-            _card(
-              Column(
-                children: [
-                  _field(_addressController, "Endereço"),
-                  _field(_departmentController, "Setor"),
-                  _field(_notesController, "Observações", maxLines: 3),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ======================
-            // 💾 BOTÃO
-            // ======================
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _updateClient,
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text("Salvar Alterações"),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+      body: Stack(
+        children: [
+          Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _sectionTitle("Dados da Concessionária"),
+                _card(
+                  Column(
+                    children: [
+                      _field(_companyNameController, "Nome da Empresa", required: true),
+                      _field(_highwayController, "Rodovia", required: true),
+                      _field(_cnpjController, "CNPJ", required: true),
+                    ],
+                  ),
                 ),
+
+                _sectionTitle("Informações de Contato"),
+                _card(
+                  Column(
+                    children: [
+                      _field(_contactPersonController, "Responsável", required: true),
+                      _field(_roleController, "Cargo do Responsável"),
+                      _field(_emailController, "E-mail",
+                          keyboardType: TextInputType.emailAddress),
+                      _field(_phoneController, "Telefone",
+                          keyboardType: TextInputType.phone),
+                    ],
+                  ),
+                ),
+
+                _sectionTitle("Dados Complementares"),
+                _card(
+                  Column(
+                    children: [
+                      _field(_addressController, "Endereço"),
+                      _field(_departmentController, "Setor"),
+                      _field(_notesController, "Observações", maxLines: 3),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _updateClient,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text("Salvar Alterações"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+
+          if (_loading)
+            Container(
+              color: Colors.black.withOpacity(0.2),
+              child: const Center(
+                child: CircularProgressIndicator(color: ViaColors.primary),
               ),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+        ],
       ),
     );
   }

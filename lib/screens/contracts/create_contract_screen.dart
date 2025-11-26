@@ -3,16 +3,24 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+// MODELS
 import 'package:viasolucoes/models/client.dart';
 import 'package:viasolucoes/models/contract.dart';
-import 'package:viasolucoes/services/client_service.dart';
-import 'package:viasolucoes/services/contract_service.dart';
-import 'package:viasolucoes/services/log_service.dart';
+import 'package:viasolucoes/models/log_entry.dart';
+
+// SERVICES
+import 'package:viasolucoes/services/supabase/client_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/contract_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/log_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/user_auth_service.dart';
+
+// UI
 import 'package:viasolucoes/theme.dart';
 
 class CreateContractScreen extends StatefulWidget {
-  final Client? client; // cliente vindo de ClientDetailScreen
+  final Client? client;
 
   const CreateContractScreen({super.key, this.client});
 
@@ -23,18 +31,19 @@ class CreateContractScreen extends StatefulWidget {
 class _CreateContractScreenState extends State<CreateContractScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _contractService = ContractService();
-  final _clientService = ClientService();
-  final _logService = LogService();
+  final _auth = UserAuthService();
+  final _contractService = ContractServiceSupabase();
+  final _clientService = ClientServiceSupabase();
+  final _logService = LogServiceSupabase();
   final _uuid = const Uuid();
+
+  final _descriptionController = TextEditingController();
+  File? _selectedFile;
 
   List<Client> _clients = [];
   bool _clientsLoaded = false;
 
   String? _selectedClientId;
-
-  final _descriptionController = TextEditingController();
-  File? _selectedFile;
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -43,39 +52,44 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
 
   final _formatter = DateFormat("d 'de' MMMM 'de' yyyy", 'pt_BR');
 
+  final bucket = 'contract-files';
+
   @override
   void initState() {
     super.initState();
+
     if (widget.client != null) {
       _selectedClientId = widget.client!.id;
     }
+
     _loadClients();
   }
 
-  /// ===========================================================
-  /// 🔥 CARREGA CLIENTES E GARANTE QUE UM CLIENTE SEMPRE EXISTE
-  /// ===========================================================
+  // =========================================================
+  // 🔵 Carregar clientes
+  // =========================================================
   Future<void> _loadClients() async {
-    final clients = await _clientService.getAll();
+    try {
+      final clients = await _clientService.getAll();
+      setState(() {
+        _clients = clients;
 
-    setState(() {
-      _clients = clients;
+        if (widget.client != null &&
+            !_clients.any((c) => c.id == widget.client!.id)) {
+          _clients.add(widget.client!);
+        }
 
-      // Se o cliente veio da tela anterior mas não está no JSON
-      if (widget.client != null &&
-          !_clients.any((c) => c.id == widget.client!.id)) {
-        _clients.add(widget.client!); // garante que o dropdown terá o item
-      }
-
-      // Atualiza o ID selecionado
-      if (widget.client != null) {
-        _selectedClientId = widget.client!.id;
-      }
-
-      _clientsLoaded = true;
-    });
+        _clientsLoaded = true;
+      });
+    } catch (e) {
+      print("❌ Erro ao carregar clientes: $e");
+      setState(() => _clientsLoaded = true);
+    }
   }
 
+  // =========================================================
+  // 📅 Seletor de datas
+  // =========================================================
   Future<void> _selectDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
@@ -83,16 +97,6 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(
-            primary: ViaColors.primary,
-            onPrimary: Colors.white,
-            onSurface: ViaColors.textPrimary,
-          ),
-        ),
-        child: child!,
-      ),
     );
 
     if (picked != null) {
@@ -106,6 +110,9 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
     }
   }
 
+  // =========================================================
+  // 📄 Selecionar arquivo
+  // =========================================================
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -117,60 +124,136 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
     }
   }
 
+  // =========================================================
+  // 🔥 Upload para o Supabase Storage
+  // =========================================================
+  Future<Map<String, String?>> _uploadFile(String contractId) async {
+    if (_selectedFile == null) return {'url': null, 'name': null};
+
+    final fileBytes = await _selectedFile!.readAsBytes();
+    final originalName = _selectedFile!.path.split('/').last;
+
+    final fileName = "${contractId}_$originalName";
+    final filePath = "contracts/$fileName";
+
+    try {
+      await Supabase.instance.client.storage
+          .from(bucket)
+          .uploadBinary(filePath, fileBytes, fileOptions: const FileOptions(upsert: true));
+
+      final publicUrl =
+      Supabase.instance.client.storage.from(bucket).getPublicUrl(filePath);
+
+      return {'url': publicUrl, 'name': fileName};
+    } catch (e) {
+      print("❌ Erro ao enviar arquivo: $e");
+      return {'url': null, 'name': null};
+    }
+  }
+
+  // =========================================================
+  // 💾 Salvar contrato + LOG
+  // =========================================================
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedClientId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Selecione um cliente')));
+      return;
+    }
 
     final client = _clients.firstWhere((c) => c.id == _selectedClientId);
 
     setState(() => _loading = true);
 
+    final now = DateTime.now();
+    final userId = _auth.getCurrentUserId();
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Usuário não autenticado.')));
+      return;
+    }
+
+    final contractId = _uuid.v4();
+
+    // 🔵 Upload do arquivo
+    final uploadData = await _uploadFile(contractId);
+
     final contract = Contract(
-      id: _uuid.v4(),
+      id: contractId,
       clientId: client.id,
       clientName: client.companyName,
       description: _descriptionController.text.trim(),
       status: 'active',
-      assignedUserId: 'user1',
-      startDate: _startDate ?? DateTime.now(),
-      endDate: _endDate ?? DateTime.now().add(const Duration(days: 30)),
+      assignedUserId: userId,
+      startDate: _startDate ?? now,
+      endDate: _endDate ?? now.add(const Duration(days: 30)),
       progressPercentage: 0,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      hasFile: _selectedFile != null,
-      fileName: _selectedFile?.path.split('/').last,
-      fileUrl: null,
+      createdAt: now,
+      updatedAt: now,
+      hasFile: uploadData['url'] != null,
+      fileName: uploadData['name'],
+      fileUrl: uploadData['url'],
     );
 
-    await _contractService.add(contract);
+    try {
+      // 🔵 Inserir contrato
+      await _contractService.add(contract);
 
-    await _logService.add(
-      contractId: contract.id,
-      action: 'contract_created',
-      description: 'Contrato criado para ${client.companyName}',
-    );
+      // 🔵 Registrar log REAL no Supabase (novo formato)
+      await _logService.log(
+        module: LogModule.contrato,
+        action: LogAction.created,
+        entityType: "CONTRATO",
+        entityId: contract.id,
+        description: "Contrato criado para ${client.companyName}",
+        metadata: {
+          "clientId": client.id,
+          "fileAttached": uploadData['url'] != null,
+        },
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Contrato criado com sucesso!'),
-        backgroundColor: Colors.green.shade600,
-      ),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Contrato criado com sucesso!'),
+          backgroundColor: Colors.green.shade600,
+        ),
+      );
 
-    Navigator.pop(context, true);
+      Navigator.pop(context, true);
+    } catch (e) {
+      print("❌ Erro ao salvar contrato: $e");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Erro ao salvar contrato.'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
+
+
+  // =========================================================
+  // UI COMPONENTS
+  // =========================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text(
-          widget.client != null
-              ? 'Novo contrato para ${widget.client!.companyName}'
-              : 'Novo Contrato',
-        ),
+        title: Text(widget.client != null
+            ? 'Novo contrato para ${widget.client!.companyName}'
+            : 'Novo Contrato'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -196,10 +279,6 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // CAMPOS
-  // ---------------------------------------------------------------------------
-
   Widget _buildClientField() {
     return _buildCard(
       child: Column(
@@ -207,27 +286,21 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
         children: [
           _label("Cliente"),
           const SizedBox(height: 10),
-
           if (!_clientsLoaded)
             const Center(child: CircularProgressIndicator())
           else
             DropdownButtonFormField<String>(
               value: _selectedClientId,
               decoration: _inputDecoration(),
-              items: _clients.map((c) {
-                return DropdownMenuItem(
-                  value: c.id,
-                  child: Text(c.companyName),
-                );
-              }).toList(),
-
+              items: _clients
+                  .map((c) =>
+                  DropdownMenuItem(value: c.id, child: Text(c.companyName)))
+                  .toList(),
               onChanged: widget.client != null
                   ? null
                   : (v) => setState(() => _selectedClientId = v),
-
-              validator: widget.client != null
-                  ? null
-                  : (v) => v == null ? "Selecione um cliente" : null,
+              validator: (v) =>
+              v == null ? "Selecione um cliente" : null,
             ),
         ],
       ),
@@ -296,62 +369,57 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
               decoration: BoxDecoration(
                 color: ViaColors.primary.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: ViaColors.primary.withOpacity(0.3),
-                ),
+                border: Border.all(color: ViaColors.primary.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
                   Icon(Icons.cloud_upload_rounded,
                       color: ViaColors.primary, size: 26),
                   const SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       "Selecionar arquivo",
-                      style: TextStyle(
-                        color: ViaColors.primary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   )
                 ],
               ),
             ),
           ),
-          if (_selectedFile != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.insert_drive_file_rounded,
-                      size: 40, color: Colors.grey.shade700),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _selectedFile!.path.split('/').last,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+          if (_selectedFile != null)
+            Column(
+              children: [
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.insert_drive_file_rounded,
+                          size: 40, color: Colors.grey.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _selectedFile!.path.split('/').last,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded,
+                            color: Colors.red.shade400),
+                        onPressed: () =>
+                            setState(() => _selectedFile = null),
+                      )
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded,
-                        color: Colors.red.shade400, size: 22),
-                    onPressed: () => setState(() => _selectedFile = null),
-                  ),
-                ],
-              ),
-            ),
-          ]
+                )
+              ],
+            )
         ],
       ),
     );
@@ -366,7 +434,6 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
         label: const Text("Salvar Contrato"),
         style: ElevatedButton.styleFrom(
           backgroundColor: ViaColors.primary,
-          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -376,9 +443,9 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // COMPONENTES UTILITÁRIOS
-  // ---------------------------------------------------------------------------
+  // =========================================================
+  // UTILITÁRIOS DE UI
+  // =========================================================
 
   Widget _buildCard({required Widget child}) {
     return Container(
@@ -388,10 +455,9 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: child,
@@ -415,10 +481,7 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
   Widget _label(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
     );
   }
 

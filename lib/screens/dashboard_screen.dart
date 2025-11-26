@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+
 import 'package:viasolucoes/models/contract.dart';
-import 'package:viasolucoes/services/contract_service.dart';
-import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/services/supabase/contract_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/task_service_supabase.dart';
 import 'package:viasolucoes/theme.dart';
 import 'package:viasolucoes/screens/contracts/create_contract_screen.dart';
 import 'package:viasolucoes/screens/tasks/create_task_screen.dart';
@@ -16,8 +17,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final _contractService = ContractService();
-  final _taskService = TaskService();
+  final _contractService = ContractServiceSupabase();
+  final _taskService = TaskServiceSupabase();
 
   Map<String, int> _stats = {};
   List<Contract> _recentContracts = [];
@@ -34,11 +35,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
-    final stats = await _contractService.getStats();
     final contracts = await _contractService.getAll();
     final tasks = await _taskService.getAll();
+    final stats = await _contractService.getStats();
 
-    // Ordena contratos mais recentes primeiro
+    // Contratos mais recentes (pelo fim)
     contracts.sort((a, b) => b.endDate.compareTo(a.endDate));
 
     final completedTasks = tasks.where((t) => t.isCompleted).length;
@@ -79,9 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // =====================================================================
-  // 🔵 BOTTOM SHEET → Selecionar Contrato antes de Criar Tarefa
-  // =====================================================================
+  // Seleciona contrato antes de cadastrar tarefa
   Future<void> _selectContractForTask() async {
     final contracts = await _contractService.getAll();
 
@@ -115,7 +114,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 16),
-
                 ...contracts.map((c) {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -131,14 +129,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       subtitle: Text(c.description),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        Navigator.pop(context); // Fecha o bottom sheet
-
+                        Navigator.pop(context);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => CreateTaskScreen(
-                              contractId: c.id,
-                            ),
+                            builder: (_) =>
+                                CreateTaskScreen(contractId: c.id),
                           ),
                         );
                       },
@@ -264,7 +260,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       );
                     },
-                  ).animate().fadeIn(delay: 480.ms).scale(begin: const Offset(0.9, 0.9)),
+                  ).animate()
+                      .fadeIn(delay: 480.ms, duration: 400.ms)
+                      .scale(begin: const Offset(0.9, 0.9)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -273,7 +271,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     icon: Icons.task_alt,
                     color: ViaColors.accent,
                     onTap: _selectContractForTask,
-                  ).animate().fadeIn(delay: 540.ms).scale(begin: const Offset(0.9, 0.9)),
+                  ).animate()
+                      .fadeIn(delay: 540.ms, duration: 400.ms)
+                      .scale(begin: const Offset(0.9, 0.9)),
                 ),
               ],
             ),
@@ -291,7 +291,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             if (_recentContracts.isEmpty)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -322,7 +323,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   contract: contract,
                   statusColor: _getStatusColor(contract.status),
                   statusLabel: _getStatusLabel(contract.status),
-                ).animate().fadeIn(delay: (650 + index * 100).ms).slideX(begin: 0.25),
+                ).animate()
+                    .fadeIn(delay: (650 + index * 100).ms)
+                    .slideX(begin: 0.25),
               );
             }),
           ],
@@ -331,8 +334,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
-
-
 
 // ======================================================================
 // WIDGETS PREMIUM
@@ -371,7 +372,6 @@ class StatCardPremium extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Ícone redondo
           Container(
             width: 42,
             height: 42,
@@ -382,7 +382,6 @@ class StatCardPremium extends StatelessWidget {
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,8 +419,6 @@ class StatCardPremium extends StatelessWidget {
     );
   }
 }
-
-
 
 class QuickActionButtonPremium extends StatelessWidget {
   final String label;
@@ -462,7 +459,7 @@ class QuickActionButtonPremium extends StatelessWidget {
               Container(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
@@ -490,9 +487,6 @@ class QuickActionButtonPremium extends StatelessWidget {
     );
   }
 }
-
-
-
 
 class RecentContractCardPremium extends StatelessWidget {
   final Contract contract;
@@ -527,7 +521,7 @@ class RecentContractCardPremium extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // HEADER: título + status
+          // HEADER
           Row(
             children: [
               Expanded(
@@ -542,7 +536,6 @@ class RecentContractCardPremium extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-
               Container(
                 padding:
                 const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -563,7 +556,6 @@ class RecentContractCardPremium extends StatelessWidget {
           ),
 
           const SizedBox(height: 6),
-
           Text(
             contract.description,
             style: TextStyle(
@@ -575,7 +567,6 @@ class RecentContractCardPremium extends StatelessWidget {
           ),
 
           const SizedBox(height: 10),
-
           Row(
             children: [
               Icon(
@@ -596,7 +587,6 @@ class RecentContractCardPremium extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Progresso
           Row(
             children: [
               Expanded(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/models/contract.dart';
 import 'package:viasolucoes/models/task.dart';
-import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/services/supabase/task_service_supabase.dart';
 import 'package:viasolucoes/theme.dart';
 import 'package:viasolucoes/widgets/task_item.dart';
 import 'package:viasolucoes/screens/tasks/create_task_screen.dart';
@@ -17,7 +17,8 @@ class ContractTasksTab extends StatefulWidget {
 }
 
 class _ContractTasksTabState extends State<ContractTasksTab> {
-  final _taskService = TaskService();
+  final TaskServiceSupabase _taskService = TaskServiceSupabase();
+
   List<Task> _tasks = [];
   bool _loading = true;
 
@@ -27,26 +28,43 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
     _loadTasks();
   }
 
+  // ============================================================
+  // 🔵 CARREGAR TAREFAS DO SUPABASE
+  // ============================================================
   Future<void> _loadTasks() async {
     setState(() => _loading = true);
-    final data = await _taskService.getByContract(widget.contract.id);
-    setState(() {
-      _tasks = data;
-      _loading = false;
-    });
+
+    try {
+      final data = await _taskService.getByContract(widget.contract.id);
+      setState(() {
+        _tasks = data;
+      });
+    } catch (e) {
+      print("❌ Erro ao carregar tarefas: $e");
+    }
+
+    setState(() => _loading = false);
   }
 
+  // ============================================================
+  // 🔵 ALTERNAR COMPLETO / NÃO COMPLETO
+  // ============================================================
   Future<void> _toggle(Task task) async {
-    final updated = task.copyWith(isCompleted: !task.isCompleted);
-    await _taskService.update(updated);
+    await _taskService.toggleCompleted(task);
     _loadTasks();
   }
 
+  // ============================================================
+  // 🔵 DELETAR TAREFA
+  // ============================================================
   Future<void> _delete(Task task) async {
-    await _taskService.delete(task.id);
+    await _taskService.delete(task.id, task.contractId);
     _loadTasks();
   }
 
+  // ============================================================
+  // 🔵 CRIAR TAREFA
+  // ============================================================
   Future<void> _add() async {
     final result = await Navigator.push(
       context,
@@ -55,9 +73,14 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
       ),
     );
 
-    if (result == true) _loadTasks();
+    if (result == true) {
+      _loadTasks();
+    }
   }
 
+  // ============================================================
+  // 🔵 EDITAR TAREFA
+  // ============================================================
   Future<void> _edit(Task task) async {
     final result = await Navigator.push(
       context,
@@ -66,9 +89,14 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
       ),
     );
 
-    if (result == true) _loadTasks();
+    if (result == true) {
+      _loadTasks();
+    }
   }
 
+  // ============================================================
+  // 🔵 UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -92,6 +120,7 @@ class _ContractTasksTabState extends State<ContractTasksTab> {
           },
         ),
 
+        // BOTÃO FLUTUANTE
         Positioned(
           bottom: 24,
           right: 24,

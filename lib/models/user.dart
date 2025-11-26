@@ -3,6 +3,10 @@ class ViaSolutionsUser {
   final String name;
   final String email;
   final String role;
+
+  final String? phone;     // 🆕 novo campo
+  final String? address;   // 🆕 novo campo
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -11,42 +15,55 @@ class ViaSolutionsUser {
     required this.name,
     required this.email,
     required this.role,
+    this.phone,
+    this.address,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'email': email,
-    'role': role,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-  };
+  factory ViaSolutionsUser.fromJson(Map<String, dynamic> json) {
+    return ViaSolutionsUser(
+      id: json['id'],
+      name: json['name'],
+      email: json['email'],
+      role: json['role'],
+      phone: json['phone'],            // novo
+      address: json['address'],        // novo
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+    );
+  }
 
-  factory ViaSolutionsUser.fromJson(Map<String, dynamic> json) =>
-      ViaSolutionsUser(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        email: json['email'] as String,
-        role: json['role'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'role': role,
+      'phone': phone,
+      'address': address,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
 
   ViaSolutionsUser copyWith({
-    String? id,
     String? name,
     String? email,
     String? role,
-    DateTime? createdAt,
+    String? phone,
+    String? address,
     DateTime? updatedAt,
-  }) => ViaSolutionsUser(
-    id: id ?? this.id,
-    name: name ?? this.name,
-    email: email ?? this.email,
-    role: role ?? this.role,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-  );
+  }) {
+    return ViaSolutionsUser(
+      id: id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

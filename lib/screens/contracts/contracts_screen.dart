@@ -4,8 +4,7 @@ import 'package:viasolucoes/models/contract.dart';
 import 'package:viasolucoes/screens/contracts/contract_detail_screen.dart';
 import 'package:viasolucoes/screens/contracts/create_contract_screen.dart';
 import 'package:viasolucoes/screens/contracts/edit_contract_screen.dart';
-import 'package:viasolucoes/services/contract_service.dart';
-import 'package:viasolucoes/services/log_service.dart';
+import 'package:viasolucoes/services/supabase/contract_service_supabase.dart';
 import 'package:viasolucoes/theme.dart';
 
 enum ContractFilter { all, active, overdue, completed }
@@ -18,8 +17,7 @@ class ContractsScreen extends StatefulWidget {
 }
 
 class _ContractsScreenState extends State<ContractsScreen> {
-  final _contractService = ContractService();
-  final _logService = LogService();
+  final _contractService = ContractServiceSupabase();
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -41,14 +39,23 @@ class _ContractsScreenState extends State<ContractsScreen> {
     super.dispose();
   }
 
+  // ============================================================
+  // 🔵 CARREGAR CONTRATOS DO SUPABASE
+  // ============================================================
   Future<void> _loadContracts() async {
     setState(() => _isLoading = true);
 
-    final all = await _contractService.getAll();
-    all.sort((a, b) => a.endDate.compareTo(b.endDate));
+    try {
+      final all = await _contractService.getAll();
 
-    _contracts = all;
-    _applyFilter();
+      // Se o serviço já ordenar, isso aqui é extra, mas não atrapalha
+      all.sort((a, b) => a.endDate.compareTo(b.endDate));
+
+      _contracts = all;
+      _applyFilter();
+    } catch (e) {
+      print('❌ Erro ao carregar contratos: $e');
+    }
 
     setState(() => _isLoading = false);
   }
@@ -217,7 +224,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
                 : RefreshIndicator(
               onRefresh: _loadContracts,
               child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 80),
+                padding:
+                const EdgeInsets.fromLTRB(20, 4, 20, 80),
                 itemCount: _filteredContracts.length,
                 itemBuilder: (context, index) {
                   final contract = _filteredContracts[index];
@@ -321,7 +329,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
                 Expanded(
                   child: Text(
                     contract.clientName,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style:
+                    Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                     maxLines: 1,
@@ -395,11 +404,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
               ],
             ),
 
-            // -------------------------------
             // PROGRESSO DO CONTRATO
-            // -------------------------------
             const SizedBox(height: 12),
-
             Row(
               children: [
                 Expanded(

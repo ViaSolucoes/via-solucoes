@@ -2,9 +2,15 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:viasolucoes/models/contract.dart';
-import 'package:viasolucoes/services/contract_service.dart';
-import 'package:viasolucoes/services/log_service.dart';
+import 'package:viasolucoes/models/log_entry.dart';
+import 'package:viasolucoes/services/supabase/log_service_supabase.dart';
+import 'package:viasolucoes/services/supabase/contract_service_supabase.dart';
+import 'package:uuid/uuid.dart';
+
 import 'package:viasolucoes/theme.dart';
 
 class EditContractScreen extends StatefulWidget {
@@ -18,16 +24,21 @@ class EditContractScreen extends StatefulWidget {
 
 class _EditContractScreenState extends State<EditContractScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _contractService = ContractService();
-  final _logService = LogService();
+
+  final _contractService = ContractServiceSupabase();
+  final _logService = LogServiceSupabase();
 
   late TextEditingController _descriptionController;
 
   DateTime? _startDate;
   DateTime? _endDate;
-  File? _selectedFile;
+
+  File? _selectedFile;             // novo arquivo
+  bool _removeOldFile = false;     // flag para remover arquivo anterior
 
   final _formatter = DateFormat("d 'de' MMMM 'de' yyyy", 'pt_BR');
+  final supabase = Supabase.instance.client;
+
   bool _loading = false;
 
   @override
@@ -41,6 +52,9 @@ class _EditContractScreenState extends State<EditContractScreen> {
     _endDate = widget.contract.endDate;
   }
 
+  // ==============================================================================
+  // Seleção de datas
+  // ==============================================================================
   Future<void> _selectDate(bool isStart) async {
     final picked = await showDatePicker(
       context: context,
@@ -61,6 +75,9 @@ class _EditContractScreenState extends State<EditContractScreen> {
     }
   }
 
+  // ==============================================================================
+  // Selecionar arquivo novo
+  // ==============================================================================
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -70,38 +87,154 @@ class _EditContractScreenState extends State<EditContractScreen> {
     if (result != null && result.files.single.path != null) {
       setState(() {
         _selectedFile = File(result.files.single.path!);
+        _removeOldFile = true; // vai substituir o arquivo anterior
       });
     }
   }
 
+  // ==============================================================================
+  // Excluir arquivo antigo do bucket
+  // ==============================================================================
+  Future<void> _deleteOldFile() async {
+    if (widget.contract.fileName == null) return;
+
+    try {
+      await supabase.storage
+          .from('contract-files')
+          .remove(['contracts/${widget.contract.fileName}']);
+    } catch (e) {
+      print('⚠ Erro ao excluir arquivo antigo: $e');
+    }
+  }
+
+  // ==============================================================================
+  // Upload arquivo novo
+  // ==============================================================================
+  Future<Map<String, String?>> _uploadNewFile() async {
+    if (_selectedFile == null) {
+      return {'fileUrl': widget.contract.fileUrl, 'fileName': widget.contract.fileName};
+    }
+
+    try {
+      // remover arquivo antigo se existir
+      if (_removeOldFile && widget.contract.fileName != null) {
+        await _deleteOldFile();
+      }
+
+      final fileBytes = await _selectedFile!.readAsBytes();
+      final newName = "${const Uuid().v4()}_${_selectedFile!.path.split('/').last}";
+
+      await supabase.storage.from('contract-files').uploadBinary(
+        'contracts/$newName',
+        fileBytes,
+        fileOptions: const FileOptions(upsert: false),
+      );
+
+      final newUrl = supabase.storage
+          .from('contract-files')
+          .getPublicUrl('contracts/$newName');
+
+      return {'fileUrl': newUrl, 'fileName': newName};
+    } catch (e) {
+      print('❌ Erro ao enviar arquivo: $e');
+      return {'fileUrl': null, 'fileName': null};
+    }
+  }
+
+  // ==============================================================================
+  // Salvar alterações
+  // ==============================================================================
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
+
+    String? fileUrl = widget.contract.fileUrl;
+    String? fileName = widget.contract.fileName;
+
+    // Caso o usuário tenha marcado para remover o arquivo sem adicionar outro
+    if (_removeOldFile && _selectedFile == null) {
+      await _deleteOldFile();
+      fileUrl = null;
+      fileName = null;
+    }
+
+    // Caso tenha selecionado um novo arquivo
+    if (_selectedFile != null) {
+      final result = await _uploadNewFile();
+      fileUrl = result['fileUrl'];
+      fileName = result['fileName'];
+    }
 
     final updatedContract = widget.contract.copyWith(
       description: _descriptionController.text.trim(),
       startDate: _startDate,
       endDate: _endDate,
       updatedAt: DateTime.now(),
-      hasFile: _selectedFile != null,
-      fileName: _selectedFile?.path.split('/').last,
+      hasFile: fileUrl != null,
+      fileUrl: fileUrl,
+      fileName: fileName,
     );
 
-    await _contractService.update(updatedContract);
+    try {
+      // 🔵 Atualizar contrato no Supabase
+      await _contractService.update(updatedContract);
 
-    await _logService.add(
-      contractId: widget.contract.id,
-      action: 'contract_updated',
-      description: 'Contrato atualizado.',
-    );
+      // 🔵 Registrar log no novo formato
+      await _logService.log(
+        module: LogModule.contrato,
+        action: LogAction.updated,
+        entityType: "CONTRATO",
+        entityId: widget.contract.id,
+        description: "Contrato atualizado.",
+        metadata: {
+          "fileReplaced": _selectedFile != null,
+          "fileRemoved": _removeOldFile && _selectedFile == null,
+        },
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() => _loading = false);
-    Navigator.pop(context, true);
+      setState(() => _loading = false);
+      Navigator.pop(context, true);
+
+    } catch (e) {
+      print("❌ Erro ao atualizar contrato: $e");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Erro ao atualizar contrato.'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+
+      setState(() => _loading = false);
+    }
   }
 
+
+  // ==============================================================================
+  // Abrir arquivo atual
+  // ==============================================================================
+  Future<void> _openFile() async {
+    if (widget.contract.fileUrl == null) return;
+
+    final uri = Uri.parse(widget.contract.fileUrl!);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Não foi possível abrir o arquivo."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ==============================================================================
+  // UI
+  // ==============================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,22 +255,19 @@ class _EditContractScreenState extends State<EditContractScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // ================================
-              // DESCRIÇÃO
-              // ================================
               _sectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Descrição",
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
+                    const Text("Descrição",
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _descriptionController,
                       maxLines: 3,
+                      validator: (v) =>
+                      v == null || v.isEmpty ? "Informe a descrição" : null,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.grey.shade100,
@@ -145,12 +275,7 @@ class _EditContractScreenState extends State<EditContractScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
-                        hintText: "Descrição do contrato...",
                       ),
-                      validator: (value) =>
-                      (value == null || value.isEmpty)
-                          ? "Informe a descrição"
-                          : null,
                     ),
                   ],
                 ),
@@ -158,20 +283,14 @@ class _EditContractScreenState extends State<EditContractScreen> {
 
               const SizedBox(height: 20),
 
-              // ================================
-              // DATAS
-              // ================================
               _sectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Datas",
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
+                    const Text("Datas",
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
-
                     Row(
                       children: [
                         Expanded(
@@ -197,38 +316,79 @@ class _EditContractScreenState extends State<EditContractScreen> {
 
               const SizedBox(height: 20),
 
-              // ================================
+              // ==========================================================
               // ARQUIVO
-              // ================================
+              // ==========================================================
               _sectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      "Anexo do Contrato",
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600),
-                    ),
+                    const Text("Anexo do Contrato",
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
 
-                    _filePickerButton(),
-
-                    if (_selectedFile != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        "Arquivo: ${_selectedFile!.path.split('/').last}",
-                        style: const TextStyle(fontSize: 13),
+                    if (widget.contract.hasFile && !_removeOldFile)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.insert_drive_file,
+                                    color: Colors.blue, size: 30),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    widget.contract.fileName!,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.download),
+                                  onPressed: _openFile,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () {
+                                    setState(() => _removeOldFile = true);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                       ),
-                    ],
+
+                    OutlinedButton.icon(
+                      onPressed: _pickFile,
+                      icon: const Icon(Icons.cloud_upload_outlined),
+                      label: const Text("Selecionar arquivo"),
+                    ),
+
+                    if (_selectedFile != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          "Novo arquivo: ${_selectedFile!.path.split('/').last}",
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 30),
 
-              // ================================
-              // BOTÃO SALVAR
-              // ================================
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -241,10 +401,6 @@ class _EditContractScreenState extends State<EditContractScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ),
               ),
@@ -255,10 +411,9 @@ class _EditContractScreenState extends State<EditContractScreen> {
     );
   }
 
-  // =============================================================================
-  // COMPONENTES DE UI (Reutilizáveis e modernos)
-  // =============================================================================
-
+  // ==============================================================================
+  // COMPONENTES DE UI
+  // ==============================================================================
   Widget _sectionCard({required Widget child}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
@@ -295,28 +450,12 @@ class _EditContractScreenState extends State<EditContractScreen> {
           children: [
             Expanded(
               child: Text(
-                "${label}: ${_formatter.format(date)}",
+                "$label: ${_formatter.format(date)}",
                 style: const TextStyle(fontSize: 14),
               ),
             ),
             const Icon(Icons.calendar_today_rounded, size: 20),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _filePickerButton() {
-    return OutlinedButton.icon(
-      onPressed: _pickFile,
-      icon: const Icon(Icons.cloud_upload_outlined),
-      label: const Text("Selecionar arquivo"),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        side: BorderSide(color: ViaColors.primary.withOpacity(0.4)),
-        foregroundColor: ViaColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
         ),
       ),
     );

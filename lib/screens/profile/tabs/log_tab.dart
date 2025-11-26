@@ -1,37 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
-
 import 'package:viasolucoes/models/log_entry.dart';
-import 'package:viasolucoes/services/log_service.dart';
-import 'package:viasolucoes/theme.dart';
+import 'package:viasolucoes/models/log_entry_extensions.dart';
+import 'package:viasolucoes/services/supabase/log_service_supabase.dart';
 
-class LogTab extends StatefulWidget {
-  const LogTab({super.key});
+class ProfileLogTab extends StatefulWidget {
+  const ProfileLogTab({super.key});
 
   @override
-  State<LogTab> createState() => _LogTabState();
+  State<ProfileLogTab> createState() => _ProfileLogTabState();
 }
 
-class _LogTabState extends State<LogTab> {
-  final _logService = LogService();
+class _ProfileLogTabState extends State<ProfileLogTab> {
+  final LogServiceSupabase _logService = LogServiceSupabase();
+
   List<LogEntry> _logs = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadLogs();
+    _load();
   }
 
-  Future<void> _loadLogs() async {
-    final logs = await _logService.getAll();
-
-    // Mais recentes primeiro
-    logs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
+  Future<void> _load() async {
+    final data = await _logService.getMyLogs(); // busca logs do próprio usuário
     setState(() {
-      _logs = logs;
+      _logs = data;
       _loading = false;
     });
   }
@@ -43,317 +38,137 @@ class _LogTabState extends State<LogTab> {
     }
 
     if (_logs.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
-          'Nenhum histórico disponível.',
-          style: TextStyle(color: Colors.grey.shade600),
+          "Nenhum registro encontrado.",
+          style: TextStyle(fontSize: 15, color: Colors.grey),
         ),
       );
     }
 
-    final grouped = _groupLogsByDate();
+    final grouped = _groupByDate(_logs);
 
-    return RefreshIndicator(
-      onRefresh: _loadLogs,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        children: grouped.keys.map((date) {
-          final entries = grouped[date]!;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+      children: grouped.entries.map((entry) {
+        final date = entry.key;
+        final logs = entry.value;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cabeçalho de data
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8, top: 6),
-                child: Text(
-                  DateFormat('dd/MM/yyyy').format(date),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade700,
-                  ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14, top: 10),
+              child: Text(
+                date,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
-              ).animate().fadeIn(duration: 250.ms),
+              ),
+            ),
+            ...logs.asMap().entries.map((item) {
+              final index = item.key;
+              final log = item.value;
 
-              ...entries.asMap().entries.map((entry) {
-                final index = entry.key;
-                final log = entry.value;
-
-                final meta = _mapAction(log.action);
-                final time = DateFormat('HH:mm').format(log.timestamp);
-
-                final isFirst = index == 0;
-                final isLast = index == entries.length - 1;
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _TimelineAxis(
-                      color: meta.color,
-                      isFirst: isFirst,
-                      isLast: isLast,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _LogCard(
-                        title: meta.label,
-                        description: log.description,
-                        icon: meta.icon,
-                        color: meta.color,
-                        time: time,
-                      ),
-                    ),
-                  ],
-                )
-                    .animate()
-                    .fadeIn(delay: (index * 80).ms, duration: 300.ms)
-                    .slideX(begin: 0.2);
-              }),
-              const SizedBox(height: 14),
-            ],
-          );
-        }).toList(),
-      ),
+              return _logItem(
+                log,
+                showLine: index != logs.length - 1,
+              );
+            }),
+          ],
+        );
+      }).toList(),
     );
   }
 
-  Map<DateTime, List<LogEntry>> _groupLogsByDate() {
-    final Map<DateTime, List<LogEntry>> map = {};
-    for (var log in _logs) {
-      final date =
-      DateTime(log.timestamp.year, log.timestamp.month, log.timestamp.day);
-      map.putIfAbsent(date, () => []).add(log);
-    }
-    return map;
-  }
+  // ---------------------------------------------------------------------------
+  // ITEM DA TIMELINE
+  // ---------------------------------------------------------------------------
+  Widget _logItem(LogEntry entry, {required bool showLine}) {
+    final time = DateFormat('HH:mm').format(entry.timestamp);
 
-  // ----------------------------------------------------------
-  // MAPEAMENTO ACTION → LABEL / COR / ÍCONE
-  // ----------------------------------------------------------
-  _LogMeta _mapAction(String action) {
-    final normalized = action.toLowerCase();
-
-    if (normalized.contains('contract_created')) {
-      return _LogMeta(
-        label: 'Contrato criado',
-        color: Colors.blueAccent,
-        icon: Icons.description_outlined,
-      );
-    } else if (normalized.contains('contract_updated') ||
-        normalized.contains('updated') && normalized.contains('contract')) {
-      return _LogMeta(
-        label: 'Contrato atualizado',
-        color: Colors.indigo,
-        icon: Icons.sync_alt_rounded,
-      );
-    } else if (normalized.contains('task_created')) {
-      return _LogMeta(
-        label: 'Tarefa criada',
-        color: Colors.orange,
-        icon: Icons.note_add_outlined,
-      );
-    } else if (normalized.contains('task_updated')) {
-      return _LogMeta(
-        label: 'Tarefa atualizada',
-        color: Colors.deepOrange,
-        icon: Icons.edit_outlined,
-      );
-    } else if (normalized.contains('task_completed')) {
-      return _LogMeta(
-        label: 'Tarefa concluída',
-        color: Colors.green,
-        icon: Icons.check_circle_outline,
-      );
-    } else if (normalized.contains('task_reopened')) {
-      return _LogMeta(
-        label: 'Tarefa reaberta',
-        color: Colors.amber,
-        icon: Icons.refresh_outlined,
-      );
-    } else if (normalized.contains('task_deleted')) {
-      return _LogMeta(
-        label: 'Tarefa removida',
-        color: Colors.redAccent,
-        icon: Icons.delete_outline,
-      );
-    } else if (normalized.contains('file_uploaded') ||
-        normalized.contains('file_attached')) {
-      return _LogMeta(
-        label: 'Arquivo anexado',
-        color: Colors.purple,
-        icon: Icons.attach_file,
-      );
-    } else if (normalized.contains('file_deleted')) {
-      return _LogMeta(
-        label: 'Arquivo removido',
-        color: Colors.deepPurple,
-        icon: Icons.delete_forever_outlined,
-      );
-    } else if (normalized.contains('login')) {
-      return _LogMeta(
-        label: 'Login efetuado',
-        color: Colors.grey,
-        icon: Icons.login_rounded,
-      );
-    } else if (normalized.contains('logout')) {
-      return _LogMeta(
-        label: 'Logout efetuado',
-        color: Colors.grey,
-        icon: Icons.logout_rounded,
-      );
-    }
-
-    // fallback genérico
-    return _LogMeta(
-      label: action.replaceAll('_', ' '),
-      color: ViaColors.primary,
-      icon: Icons.history_rounded,
-    );
-  }
-}
-
-// ==========================================================
-// COMPONENTES DA TIMELINE
-// ==========================================================
-
-class _TimelineAxis extends StatelessWidget {
-  final Color color;
-  final bool isFirst;
-  final bool isLast;
-
-  const _TimelineAxis({
-    required this.color,
-    required this.isFirst,
-    required this.isLast,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lineColor = color.withOpacity(0.4);
-
-    return Column(
-      children: [
-        Container(
-          width: 2,
-          height: isFirst ? 10 : 18,
-          color: isFirst ? Colors.transparent : lineColor,
-        ),
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: color, width: 3),
-            shape: BoxShape.circle,
-          ),
-        ),
-        Container(
-          width: 2,
-          height: isLast ? 0 : 24,
-          color: isLast ? Colors.transparent : lineColor,
-        ),
-      ],
-    );
-  }
-}
-
-class _LogCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-  final Color color;
-  final String time;
-
-  const _LogCard({
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.color,
-    required this.time,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ícone colorido
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 20, color: color),
+          Column(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: entry.actionColor.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  entry.actionIcon,
+                  color: entry.actionColor,
+                  size: 18,
+                ),
+              ),
+              if (showLine)
+                Container(
+                  width: 3,
+                  height: 50,
+                  color: entry.actionColor.withValues(alpha: 0.25),
+                ),
+            ],
           ),
-          const SizedBox(width: 10),
-
-          // Textos
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      entry.actionLabel,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  description,
+                  entry.description,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     color: Colors.grey.shade700,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(width: 8),
-
-          // Horário
-          Text(
-            time,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );
   }
-}
 
-// Metadados de visual do log
-class _LogMeta {
-  final String label;
-  final Color color;
-  final IconData icon;
+  // ---------------------------------------------------------------------------
+  // AGRUPAR POR DATA
+  // ---------------------------------------------------------------------------
+  Map<String, List<LogEntry>> _groupByDate(List<LogEntry> logs) {
+    final Map<String, List<LogEntry>> map = {};
+    final formatter = DateFormat('dd/MM/yyyy');
 
-  _LogMeta({
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
+    for (var log in logs) {
+      final date = formatter.format(log.timestamp);
+      map.putIfAbsent(date, () => []);
+      map[date]!.add(log);
+    }
+
+    return map;
+  }
 }

@@ -5,14 +5,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:viasolucoes/models/contract.dart';
-import 'package:viasolucoes/models/task.dart'; // NECESSÁRIO PARA recalculateProgress
+import 'package:viasolucoes/models/task.dart';
 import 'package:viasolucoes/extensions/iterable_extensions.dart';
-import 'package:viasolucoes/services/log_service.dart'; // ✅ Import do LogService
+
+// NOVO LOG:
+import 'package:viasolucoes/services/log_service.dart';
+import 'package:viasolucoes/models/log_entry.dart';
 
 class ContractService {
   static const String _fileName = 'contracts.json';
   final _uuid = const Uuid();
-  final _logService = LogService(); // ✅ Instância para registrar logs
+
+  // 🔵 LogService novo
+  final _logService = LogService();
 
   /// Obtém o arquivo físico onde será salvo o JSON
   Future<File> _getLocalFile() async {
@@ -24,20 +29,15 @@ class ContractService {
   Future<List<Contract>> getAll() async {
     try {
       final file = await _getLocalFile();
-
       if (!await file.exists()) return [];
 
       final content = await file.readAsString();
-
       if (content.trim().isEmpty) return [];
 
       final decoded = jsonDecode(content);
-
       if (decoded is! List) return [];
 
-      return decoded
-          .map<Contract>((json) => Contract.fromJson(json))
-          .toList();
+      return decoded.map<Contract>((json) => Contract.fromJson(json)).toList();
     } catch (e) {
       print('❌ Erro ao carregar contratos: $e');
       return [];
@@ -47,8 +47,7 @@ class ContractService {
   /// Salva toda a lista no arquivo
   Future<void> _saveAll(List<Contract> contracts) async {
     final file = await _getLocalFile();
-    final jsonContent =
-    jsonEncode(contracts.map((c) => c.toJson()).toList());
+    final jsonContent = jsonEncode(contracts.map((c) => c.toJson()).toList());
     await file.writeAsString(jsonContent);
   }
 
@@ -58,11 +57,14 @@ class ContractService {
     all.add(contract);
     await _saveAll(all);
 
-    // ✅ Registrar log
+    // 🔵 Registrar LOG (NOVA ESTRUTURA)
     await _logService.add(
-      contractId: contract.id,
-      action: 'created',
-      description: 'Contrato criado: ${contract.clientName}',
+      module: LogModule.contrato,
+      action: LogAction.created,
+      entityType: "CONTRATO",
+      entityId: contract.id,
+      description: "Contrato criado: ${contract.clientName}",
+      userId: contract.assignedUserId,
     );
   }
 
@@ -87,11 +89,14 @@ class ContractService {
       all[index] = updated.copyWith(updatedAt: DateTime.now());
       await _saveAll(all);
 
-      // ✅ Registrar log
+      // 🔵 LOG
       await _logService.add(
-        contractId: updated.id,
-        action: 'updated',
-        description: 'Contrato atualizado (${updated.status})',
+        module: LogModule.contrato,
+        action: LogAction.updated,
+        entityType: "CONTRATO",
+        entityId: updated.id,
+        description: "Contrato atualizado (${updated.status})",
+        userId: updated.assignedUserId,
       );
     } else {
       print("⚠ Tentativa de atualizar contrato inexistente: ${updated.id}");
@@ -101,7 +106,6 @@ class ContractService {
   /// Estatísticas
   Future<Map<String, int>> getStats() async {
     final all = await getAll();
-
     return {
       'active': all.where((c) => c.status == 'active').length,
       'overdue': all.where((c) => c.status == 'overdue').length,
@@ -117,12 +121,15 @@ class ContractService {
     all.removeWhere((c) => c.id == id);
     await _saveAll(all);
 
-    // ✅ Registrar log
     if (contract != null) {
+      // 🔵 LOG
       await _logService.add(
-        contractId: contract.id,
-        action: 'deleted',
-        description: 'Contrato excluído: ${contract.clientName}',
+        module: LogModule.contrato,
+        action: LogAction.deleted,
+        entityType: "CONTRATO",
+        entityId: id,
+        description: "Contrato excluído: ${contract.clientName}",
+        userId: contract.assignedUserId,
       );
     }
   }
@@ -138,7 +145,7 @@ class ContractService {
       id: _uuid.v4(),
       clientId: '1',
       clientName: 'Cliente Exemplo',
-      description: 'Contrato de exemplo um',
+      description: 'Contrato de exemplo',
       status: 'active',
       assignedUserId: 'user1',
       startDate: now.subtract(const Duration(days: 10)),
@@ -171,12 +178,14 @@ class ContractService {
     final updated = contract.copyWith(progressPercentage: progress);
     await update(updated);
 
-    // ✅ Registrar log de progresso
+    // 🔵 LOG
     await _logService.add(
-      contractId: contract.id,
-      action: 'progress_updated',
-      description:
-      'Progresso atualizado para ${progress.toStringAsFixed(0)}%',
+      module: LogModule.contrato,
+      action: LogAction.progressUpdated,
+      entityType: "CONTRATO",
+      entityId: contract.id,
+      description: "Progresso atualizado para ${progress.toStringAsFixed(0)}%",
+      userId: contract.assignedUserId,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/models/task.dart';
-import 'package:viasolucoes/services/task_service.dart';
+import 'package:viasolucoes/services/supabase/task_service_supabase.dart';
 
 class EditTaskScreen extends StatefulWidget {
   final Task task;
@@ -13,7 +13,7 @@ class EditTaskScreen extends StatefulWidget {
 
 class _EditTaskScreenState extends State<EditTaskScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _taskService = TaskService();
+  final _taskService = TaskServiceSupabase();
 
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
@@ -43,6 +43,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
           ? null
           : _descriptionController.text.trim(),
       isCompleted: _isCompleted,
+      updatedAt: DateTime.now(),
     );
 
     await _taskService.update(updated);
