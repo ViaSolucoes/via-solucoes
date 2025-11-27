@@ -26,6 +26,9 @@ coverage/
 *.iws
 .idea/
 .vscode/
+*.classpath
+*.project
+*.settings/
 
 # =====================================
 # macOS / Linux / Windows
@@ -36,13 +39,15 @@ coverage/
 **/macos/xcuserdata/
 **/macos/Pods/
 **/macos/build/
+
 **/linux/flutter/
 **/linux/build/
+**/linux/GeneratedPlugins.cmake
+
 **/windows/flutter/
 **/windows/build/
 **/windows/GeneratedPluginRegistrant.*
 **/windows/GeneratedPlugins.cmake
-**/linux/GeneratedPlugins.cmake
 
 # =====================================
 # iOS / Xcode
@@ -52,7 +57,6 @@ coverage/
 **/ios/Flutter/Flutter.podspec
 **/ios/Flutter/Generated.xcconfig
 **/ios/Flutter/ephemeral/
-**/ios/Flutter/flutter_export_environment.sh
 **/ios/.symlinks/
 **/ios/Pods/
 **/ios/build/
@@ -86,7 +90,30 @@ coverage/
 **/web/.flutter-plugins-dependencies
 
 # =====================================
-# OS / Misc
+# Supabase ⚠️ (evitar chaves privadas)
+# =====================================
+supabase/.branches/
+supabase/.temp/
+supabase/.config/
+supabase/.local/
+
+# NÃO IGNORE: supabase/functions/ → é código do usuário
+# IGNORE APENAS:
+supabase/functions/.edge/
+supabase/functions/*.log
+
+# =====================================
+# Arquivos sensíveis (IA / APIs / tokens)
+# =====================================
+.env
+.env.*
+*.env
+*.secret
+secrets.dart
+lib/env/env.dart
+
+# =====================================
+# OS / System files
 # =====================================
 .DS_Store
 *.swp
@@ -105,8 +132,8 @@ Thumbs.db
 *.rej
 
 # =====================================
-# Custom project exclusions
+# Node (caso use Firebase Tools / Supabase CLI)
 # =====================================
-# Secrets / API keys (add manually if needed)
-secrets.dart
-.env
+node_modules/
+npm-debug.log
+yarn-error.log

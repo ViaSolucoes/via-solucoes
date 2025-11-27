@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:viasolucoes/features/assistant/services/assistant_file_service.dart';
+
 // MODELS
 import 'package:viasolucoes/models/client.dart';
 import 'package:viasolucoes/models/contract.dart';
@@ -32,6 +34,7 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _auth = UserAuthService();
+  final AssistantFileService _assistantFileService = AssistantFileService();
   final _contractService = ContractServiceSupabase();
   final _clientService = ClientServiceSupabase();
   final _logService = LogServiceSupabase();
@@ -111,8 +114,8 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
   }
 
   // =========================================================
-  // 📄 Selecionar arquivo
-  // =========================================================
+// 📄 Selecionar arquivo + gerar descrição automática
+// =========================================================
   Future<void> _pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -121,8 +124,19 @@ class _CreateContractScreenState extends State<CreateContractScreen> {
 
     if (result != null && result.files.single.path != null) {
       setState(() => _selectedFile = File(result.files.single.path!));
+
+      // 👉 IA AUTOPREENCHENDO A DESCRIÇÃO DO CONTRATO
+      final summary = await AssistantFileService().summarize(_selectedFile!);
+      _descriptionController.text = summary;
+
+      if (summary.isNotEmpty) {
+        setState(() {
+          _descriptionController.text = summary;
+        });
+      }
     }
   }
+
 
   // =========================================================
   // 🔥 Upload para o Supabase Storage

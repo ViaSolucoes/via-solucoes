@@ -6,6 +6,8 @@ import 'package:viasolucoes/supabase/supabase_client.dart';
 import 'package:viasolucoes/screens/auth/login_screen.dart';
 import 'package:viasolucoes/theme.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -15,7 +17,11 @@ void main() async {
   // 🔥 Inicialização do Supabase
   await SupabaseConfig.initialize();
 
-  runApp(const ViaSolucoesApp());
+  runApp(
+    const ProviderScope(
+      child: ViaSolucoesApp(),
+    ),
+  );
 }
 
 class ViaSolucoesApp extends StatelessWidget {
@@ -29,7 +35,6 @@ class ViaSolucoesApp extends StatelessWidget {
 
       // Tema global
       theme: lightTheme,
-      // theme: lightTheme.copyWith(useMaterial3: true),  // Opcional
 
       // 🌎 Locale padrão em Português do Brasil
       locale: const Locale('pt', 'BR'),

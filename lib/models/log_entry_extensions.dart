@@ -1,4 +1,4 @@
-// lib/models/log_entry_extensions.dart
+// lib/data/log_entry_extensions.dart
 
 import 'package:flutter/material.dart';
 import 'package:viasolucoes/models/log_entry.dart';
