@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+
 import 'package:viasolucoes/screens/dashboard_screen.dart';
 import 'package:viasolucoes/screens/client/clients_screen.dart';
 import 'package:viasolucoes/screens/contracts/contracts_screen.dart';
 import 'package:viasolucoes/screens/profile/profile_screen.dart';
 import 'package:viasolucoes/theme.dart';
+
+import 'package:viasolucoes/features/assistant/ui/assistant_modal.dart';
+import 'package:viasolucoes/features/assistant/ui/assistant_fab.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -33,6 +37,16 @@ class _MainScreenState extends State<MainScreen> {
         index: _selectedIndex,
         children: _screens,
       ),
+
+      // FAB somente na aba Dashboard
+      floatingActionButton: _selectedIndex == 0
+          ? AssistantFAB(
+        onTap: () => showAssistantModal(context),
+      )
+          : null,
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,

@@ -39,7 +39,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final tasks = await _taskService.getAll();
     final stats = await _contractService.getStats();
 
-    // Contratos mais recentes (pelo fim)
     contracts.sort((a, b) => b.endDate.compareTo(a.endDate));
 
     final completedTasks = tasks.where((t) => t.isCompleted).length;
@@ -80,7 +79,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Seleciona contrato antes de cadastrar tarefa
   Future<void> _selectContractForTask() async {
     final contracts = await _contractService.getAll();
 
@@ -157,187 +155,184 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Container(
-      color: bg,
-      child: RefreshIndicator(
-        onRefresh: _loadData,
-        displacement: 30,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-          children: [
-            // HEADER
-            Text(
-              'Bem-vindo de volta',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Colors.grey.shade700,
-              ),
-            ).animate().fadeIn(duration: 400.ms),
-            const SizedBox(height: 4),
-            Text(
-              'Visão Geral',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
-
-            const SizedBox(height: 24),
-
-            // KPIs
-            Row(
-              children: [
-                Expanded(
-                  child: StatCardPremium(
-                    title: 'Ativos',
-                    value: _stats['active']?.toString() ?? '0',
-                    subtitle: 'Em andamento',
-                    color: ViaColors.secondary,
-                    icon: Icons.work_outline,
-                  ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.2),
+    return SafeArea( // ← AQUI ESTÁ A CORREÇÃO PRINCIPAL
+      child: Container(
+        color: bg,
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          displacement: 30,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            children: [
+              Text(
+                'Bem-vindo de volta',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.grey.shade700,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: StatCardPremium(
-                    title: 'Atrasados',
-                    value: _stats['overdue']?.toString() ?? '0',
-                    subtitle: 'Exigem atenção',
-                    color: ViaColors.error,
-                    icon: Icons.warning_amber_outlined,
-                  ).animate().fadeIn(delay: 260.ms).slideX(begin: -0.2),
+              ).animate().fadeIn(duration: 400.ms),
+              const SizedBox(height: 4),
+              Text(
+                'Visão Geral',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
-            ),
+              ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-            Row(
-              children: [
-                Expanded(
-                  child: StatCardPremium(
-                    title: 'Concluídos',
-                    value: _stats['completed']?.toString() ?? '0',
-                    subtitle: 'Encerrados',
-                    color: ViaColors.success,
-                    icon: Icons.check_circle_outline,
-                  ).animate().fadeIn(delay: 320.ms).slideX(begin: -0.2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: StatCardPremium(
-                    title: 'Tarefas',
-                    value: _pendingTasks.toString(),
-                    subtitle: '$_completedTasks concluídas',
-                    color: ViaColors.accent,
-                    icon: Icons.task_outlined,
-                  ).animate().fadeIn(delay: 380.ms).slideX(begin: -0.2),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // AÇÕES RÁPIDAS
-            Text(
-              'Ações Rápidas',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: QuickActionButtonPremium(
-                    label: 'Novo Contrato',
-                    icon: Icons.add_circle_outline,
-                    color: ViaColors.primary,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CreateContractScreen(),
-                        ),
-                      );
-                    },
-                  ).animate()
-                      .fadeIn(delay: 480.ms, duration: 400.ms)
-                      .scale(begin: const Offset(0.9, 0.9)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: QuickActionButtonPremium(
-                    label: 'Nova Tarefa',
-                    icon: Icons.task_alt,
-                    color: ViaColors.accent,
-                    onTap: _selectContractForTask,
-                  ).animate()
-                      .fadeIn(delay: 540.ms, duration: 400.ms)
-                      .scale(begin: const Offset(0.9, 0.9)),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 32),
-
-            // CONTRATOS RECENTES
-            Text(
-              'Contratos Recentes',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            if (_recentContracts.isEmpty)
-              Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  'Nenhum contrato recente.',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
+              Row(
+                children: [
+                  Expanded(
+                    child: StatCardPremium(
+                      title: 'Ativos',
+                      value: _stats['active']?.toString() ?? '0',
+                      subtitle: 'Em andamento',
+                      color: ViaColors.secondary,
+                      icon: Icons.work_outline,
+                    ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.2),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StatCardPremium(
+                      title: 'Atrasados',
+                      value: _stats['overdue']?.toString() ?? '0',
+                      subtitle: 'Exigem atenção',
+                      color: ViaColors.error,
+                      icon: Icons.warning_amber_outlined,
+                    ).animate().fadeIn(delay: 260.ms).slideX(begin: -0.2),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: StatCardPremium(
+                      title: 'Concluídos',
+                      value: _stats['completed']?.toString() ?? '0',
+                      subtitle: 'Encerrados',
+                      color: ViaColors.success,
+                      icon: Icons.check_circle_outline,
+                    ).animate().fadeIn(delay: 320.ms).slideX(begin: -0.2),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StatCardPremium(
+                      title: 'Tarefas',
+                      value: _pendingTasks.toString(),
+                      subtitle: '$_completedTasks concluídas',
+                      color: ViaColors.accent,
+                      icon: Icons.task_outlined,
+                    ).animate().fadeIn(delay: 380.ms).slideX(begin: -0.2),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              Text(
+                'Ações Rápidas',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-              ).animate().fadeIn(delay: 620.ms),
+              ),
+              const SizedBox(height: 16),
 
-            ..._recentContracts.asMap().entries.map((entry) {
-              final index = entry.key;
-              final contract = entry.value;
+              Row(
+                children: [
+                  Expanded(
+                    child: QuickActionButtonPremium(
+                      label: 'Novo Contrato',
+                      icon: Icons.add_circle_outline,
+                      color: ViaColors.primary,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CreateContractScreen(),
+                          ),
+                        );
+                      },
+                    ).animate()
+                        .fadeIn(delay: 480.ms, duration: 400.ms)
+                        .scale(begin: const Offset(0.9, 0.9)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: QuickActionButtonPremium(
+                      label: 'Nova Tarefa',
+                      icon: Icons.task_alt,
+                      color: ViaColors.accent,
+                      onTap: _selectContractForTask,
+                    ).animate()
+                        .fadeIn(delay: 540.ms, duration: 400.ms)
+                        .scale(begin: const Offset(0.9, 0.9)),
+                  ),
+                ],
+              ),
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: RecentContractCardPremium(
-                  contract: contract,
-                  statusColor: _getStatusColor(contract.status),
-                  statusLabel: _getStatusLabel(contract.status),
-                ).animate()
-                    .fadeIn(delay: (650 + index * 100).ms)
-                    .slideX(begin: 0.25),
-              );
-            }),
-          ],
+              const SizedBox(height: 32),
+
+              Text(
+                'Contratos Recentes',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              if (_recentContracts.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'Nenhum contrato recente.',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 620.ms),
+
+              ..._recentContracts.asMap().entries.map((entry) {
+                final index = entry.key;
+                final contract = entry.value;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: RecentContractCardPremium(
+                    contract: contract,
+                    statusColor: _getStatusColor(contract.status),
+                    statusLabel: _getStatusLabel(contract.status),
+                  ).animate()
+                      .fadeIn(delay: (650 + index * 100).ms)
+                      .slideX(begin: 0.25),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ======================================================================
-// WIDGETS PREMIUM
-// ======================================================================
+// ===============================================================
+// COMPONENTES (como estavam antes, sem alterações)
+// ===============================================================
 
 class StatCardPremium extends StatelessWidget {
   final String title;
@@ -521,7 +516,6 @@ class RecentContractCardPremium extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // HEADER
           Row(
             children: [
               Expanded(
@@ -537,8 +531,7 @@ class RecentContractCardPremium extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(999),
@@ -593,8 +586,7 @@ class RecentContractCardPremium extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
-                    value:
-                    (contract.progressPercentage / 100).clamp(0.0, 1.0),
+                    value: (contract.progressPercentage / 100).clamp(0.0, 1.0),
                     minHeight: 6,
                     backgroundColor: Colors.grey.shade300,
                     valueColor: AlwaysStoppedAnimation(
