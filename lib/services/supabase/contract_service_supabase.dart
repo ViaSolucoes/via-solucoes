@@ -33,7 +33,8 @@ class ContractServiceSupabase {
         .toList();
   }
 
-  Future<List<Contract>> getByClientId(String clientId) => getByClient(clientId);
+  Future<List<Contract>> getByClientId(String clientId) =>
+      getByClient(clientId);
 
   // ============================================================
   // BUSCAR POR ID
@@ -50,7 +51,7 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-  // CRIAR CONTRATO  ✅ AGORA SALVA O ARQUIVO
+  // CRIAR CONTRATO
   // ============================================================
   Future<void> add(Contract contract) async {
     await supabase.from('tbdContrato').insert({
@@ -65,21 +66,17 @@ class ContractServiceSupabase {
       'criadoEm': contract.createdAt.toIso8601String(),
       'atualizadoEm': contract.updatedAt.toIso8601String(),
 
-      // 🔵 CAMPOS QUE FALTAVAM
       'possuiArquivo': contract.hasFile,
       'nomeArquivo': contract.fileName,
       'urlArquivo': contract.fileUrl,
     });
   }
 
-
   // ============================================================
-  // ATUALIZAR CONTRATO  ✅ TAMBÉM ATUALIZA ARQUIVO
+  // ATUALIZAR CONTRATO
   // ============================================================
   Future<void> update(Contract contract) async {
-    await supabase
-        .from('tbdContrato')
-        .update({
+    await supabase.from('tbdContrato').update({
       'idEmpresa': contract.clientId,
       'descricaoContrato': contract.description,
       'statusContrato': contract.status,
@@ -89,14 +86,11 @@ class ContractServiceSupabase {
       'progressoPercentual': contract.progressPercentage,
       'atualizadoEm': DateTime.now().toIso8601String(),
 
-      // 🔵 CAMPOS NOVOS
       'possuiArquivo': contract.hasFile,
       'nomeArquivo': contract.fileName,
       'urlArquivo': contract.fileUrl,
-    })
-        .eq('idContrato', contract.id);
+    }).eq('idContrato', contract.id);
   }
-
 
   // ============================================================
   // DELETAR
@@ -106,7 +100,7 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-  // 🔄 MAPEAR DADOS DO SUPABASE → MODEL
+  // 🔄 MAPEAR DADOS SUPABASE → MODEL
   // ============================================================
   Map<String, dynamic> _fromSupabase(Map<String, dynamic> row) {
     return {
@@ -116,13 +110,15 @@ class ContractServiceSupabase {
       'description': row['descricaoContrato'],
       'status': row['statusContrato'],
       'assignedUserId': row['idUsuarioResponsavel'],
+
+      // Aqui são STRINGS — mas Contract.fromJson aceita DateTime OU String
       'startDate': row['dataInicioContrato'],
       'endDate': row['dataFimContrato'],
-      'progressPercentage': row['progressoPercentual'] ?? 0,
       'createdAt': row['criadoEm'],
       'updatedAt': row['atualizadoEm'],
 
-      // 🟦 CAMPOS DO ARQUIVO
+      'progressPercentage': row['progressoPercentual'] ?? 0,
+
       'hasFile': row['possuiArquivo'] ?? false,
       'fileName': row['nomeArquivo'],
       'fileUrl': row['urlArquivo'],
@@ -130,29 +126,26 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-// 🔵 STATS PARA O DASHBOARD
-// ============================================================
+  // STATS PARA DASHBOARD
+  // ============================================================
   Future<Map<String, int>> getStats() async {
-    final response = await supabase
-        .from('tbdContrato')
-        .select('statusContrato');
+    final contracts = await getAll();
+    final now = DateTime.now();
 
     int active = 0;
     int overdue = 0;
     int completed = 0;
 
-    for (final row in (response as List)) {
-      final status = (row['statusContrato'] ?? '').toString();
-      switch (status) {
-        case 'active':
-          active++;
-          break;
-        case 'overdue':
-          overdue++;
-          break;
-        case 'completed':
-          completed++;
-          break;
+    for (final c in contracts) {
+      final bool isCompleted = c.progressPercentage >= 100;
+      final bool isOverdue = now.isAfter(c.endDate) && !isCompleted;
+
+      if (isCompleted) {
+        completed++;
+      } else if (isOverdue) {
+        overdue++;
+      } else {
+        active++;
       }
     }
 
@@ -162,7 +155,4 @@ class ContractServiceSupabase {
       'completed': completed,
     };
   }
-
 }
-
-
