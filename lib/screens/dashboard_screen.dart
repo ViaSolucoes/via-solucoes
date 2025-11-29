@@ -32,6 +32,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadData();
   }
 
+  // ============================================================
+  // CARREGA TODOS OS DADOS REAIS
+  // ============================================================
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
@@ -53,6 +56,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  // ============================================================
+  // STATUS REAL DO CONTRATO (CÁLCULO IDEAL)
+  // ============================================================
+  String _computeStatus(Contract c) {
+    final now = DateTime.now();
+    final completed = c.progressPercentage >= 100;
+    final overdue = !completed && now.isAfter(c.endDate);
+
+    if (completed) return "completed";
+    if (overdue) return "overdue";
+    return "active";
+  }
+
+  // ============================================================
+  // CORES DO STATUS
+  // ============================================================
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
@@ -66,6 +85,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ============================================================
+  // LABEL DO STATUS
+  // ============================================================
   String _getStatusLabel(String status) {
     switch (status) {
       case 'active':
@@ -79,6 +101,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ============================================================
+  // SELEÇÃO DE CONTRATO PARA NOVA TAREFA
+  // ============================================================
   Future<void> _selectContractForTask() async {
     final contracts = await _contractService.getAll();
 
@@ -155,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SafeArea( // ← AQUI ESTÁ A CORREÇÃO PRINCIPAL
+    return SafeArea(
       child: Container(
         color: bg,
         child: RefreshIndicator(
@@ -165,22 +190,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             children: [
+              // TITULOS
               Text(
                 'Bem-vindo de volta',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey.shade700,
-                ),
+                      color: Colors.grey.shade700,
+                    ),
               ).animate().fadeIn(duration: 400.ms),
               const SizedBox(height: 4),
               Text(
                 'Visão Geral',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                      fontWeight: FontWeight.w700,
+                    ),
               ).animate().fadeIn(delay: 100.ms, duration: 400.ms),
 
               const SizedBox(height: 24),
 
+              // CARDS DE STATUS
               Row(
                 children: [
                   Expanded(
@@ -233,11 +260,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 32),
 
+              // AÇÕES RÁPIDAS
               Text(
                 'Ações Rápidas',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
               const SizedBox(height: 16),
 
@@ -276,11 +304,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               const SizedBox(height: 32),
 
+              // CONTRATOS RECENTES
               Text(
                 'Contratos Recentes',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
               const SizedBox(height: 16),
 
@@ -311,12 +340,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final index = entry.key;
                 final contract = entry.value;
 
+                final status = _computeStatus(contract);
+                final color = _getStatusColor(status);
+                final label = _getStatusLabel(status);
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: RecentContractCardPremium(
                     contract: contract,
-                    statusColor: _getStatusColor(contract.status),
-                    statusLabel: _getStatusLabel(contract.status),
+                    statusColor: color,
+                    statusLabel: label,
                   ).animate()
                       .fadeIn(delay: (650 + index * 100).ms)
                       .slideX(begin: 0.25),
@@ -331,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 // ===============================================================
-// COMPONENTES (como estavam antes, sem alterações)
+// COMPONENTES ORIGINAIS (SEM ALTERAÇÕES)
 // ===============================================================
 
 class StatCardPremium extends StatelessWidget {
