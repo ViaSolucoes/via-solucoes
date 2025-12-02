@@ -7,7 +7,9 @@ class ClientCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final VoidCallback? onToggleStatus; // novo callback
+
+  /// 🔥 Agora recebe o novo valor (bool)
+  final Function(bool newValue)? onToggleStatus;
 
   const ClientCard({
     super.key,
@@ -15,7 +17,7 @@ class ClientCard extends StatelessWidget {
     this.onTap,
     this.onEdit,
     this.onDelete,
-    this.onToggleStatus, // novo parâmetro
+    this.onToggleStatus,
   });
 
   @override
@@ -130,12 +132,15 @@ class ClientCard extends StatelessWidget {
         ),
         Row(
           children: [
-            // Toggle switch moderno
             Switch.adaptive(
               value: isActive,
               activeColor: ViaColors.success,
               inactiveThumbColor: ViaColors.error,
-              onChanged: (_) => onToggleStatus?.call(),
+
+              /// ✔ Envia o novo valor para a tela externa
+              onChanged: (newValue) {
+                onToggleStatus?.call(newValue);
+              },
             ),
           ],
         ),
