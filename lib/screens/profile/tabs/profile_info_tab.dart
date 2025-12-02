@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import 'package:viasolucoes/models/user.dart';
 import 'package:viasolucoes/services/supabase/user_service_supabase.dart';
 import 'package:viasolucoes/services/supabase/user_auth_service.dart';
@@ -21,6 +24,7 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
+  late TextEditingController _webhookController;
 
   @override
   void initState() {
@@ -28,6 +32,9 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
     _loadUser();
   }
 
+  // ---------------------------------------------------------
+  // 🔵 CARREGA PERFIL DO SUPABASE
+  // ---------------------------------------------------------
   Future<void> _loadUser() async {
     final id = _auth.getCurrentUserId();
 
@@ -43,10 +50,14 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
       _nameController = TextEditingController(text: user?.name ?? "");
       _phoneController = TextEditingController(text: user?.phone ?? "");
       _addressController = TextEditingController(text: user?.address ?? "");
+      _webhookController = TextEditingController(text: user?.webhookUrl ?? "");
       _loading = false;
     });
   }
 
+  // ---------------------------------------------------------
+  // 🔵 SALVAR PERFIL
+  // ---------------------------------------------------------
   Future<void> _save() async {
     if (_user == null) return;
 
@@ -56,6 +67,7 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
       address: _addressController.text.trim(),
+      webhookUrl: _webhookController.text.trim(),
       updatedAt: DateTime.now(),
     );
 
@@ -67,9 +79,75 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
       const SnackBar(content: Text("Perfil atualizado com sucesso!")),
     );
 
-    _loadUser(); // recarrega os dados
+    _loadUser(); // recarrega
   }
 
+  // ---------------------------------------------------------
+  // 🔵 TESTAR WEBHOOK
+  // ---------------------------------------------------------
+  Future<void> _testWebhook() async {
+    final url = _webhookController.text.trim();
+
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Digite o webhook primeiro."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Exibir loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "event": "webhook_test",
+          "message": "Webhook funcionando!",
+          "timestamp": DateTime.now().toIso8601String(),
+        }),
+      );
+
+      Navigator.pop(context); // fecha loading
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("Webhook conectado com sucesso!"),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro ${response.statusCode}: resposta inválida."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Falha ao conectar: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 🔵 UI
+  // ---------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -85,7 +163,6 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TÍTULO
           const Text(
             "Informações do Perfil",
             style: TextStyle(
@@ -95,7 +172,6 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
           ),
           const SizedBox(height: 20),
 
-          // CAMPOS EDITÁVEIS
           _buildInput("Nome", _nameController),
           const SizedBox(height: 18),
 
@@ -103,14 +179,14 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
           const SizedBox(height: 18),
 
           _buildInput("Endereço", _addressController),
+          const SizedBox(height: 18),
+
+          _buildWebhookField(),
           const SizedBox(height: 25),
 
-          // INFO NÃO EDITÁVEL
           _buildInfoCard(_user!),
-
           const SizedBox(height: 32),
 
-          // BOTÃO SALVAR
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -131,18 +207,64 @@ class _ProfileInfoTabState extends State<ProfileInfoTab> {
     );
   }
 
-  // ----------------------------------------------------------------------
-  // COMPONENTES DE UI
-  // ----------------------------------------------------------------------
+  // ---------------------------------------------------------
+  // CAMPOS UI
+  // ---------------------------------------------------------
 
-  Widget _buildInput(String label, TextEditingController controller) {
+  Widget _buildWebhookField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label("URL do Webhook"),
+        const SizedBox(height: 6),
+
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _webhookController,
+                decoration: InputDecoration(
+                  hintText: "https://meu-webhook.com/api",
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            ElevatedButton(
+              onPressed: _testWebhook,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ViaColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text("Testar"),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInput(String label, TextEditingController controller,
+      {String? hint}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label(label),
+        const SizedBox(height: 4),
         TextField(
           controller: controller,
           decoration: InputDecoration(
+            hintText: hint,
             filled: true,
             fillColor: Colors.grey.shade100,
             border: OutlineInputBorder(

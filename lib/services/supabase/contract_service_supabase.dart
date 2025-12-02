@@ -1,8 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:viasolucoes/models/contract.dart';
+import 'package:viasolucoes/services/webhook_service.dart';
 
 class ContractServiceSupabase {
   final supabase = Supabase.instance.client;
+  final _webhook = WebhookService();
 
   // ============================================================
   // LISTAR TODOS
@@ -33,8 +35,7 @@ class ContractServiceSupabase {
         .toList();
   }
 
-  Future<List<Contract>> getByClientId(String clientId) =>
-      getByClient(clientId);
+  Future<List<Contract>> getByClientId(String clientId) => getByClient(clientId);
 
   // ============================================================
   // BUSCAR POR ID
@@ -65,11 +66,12 @@ class ContractServiceSupabase {
       'progressoPercentual': contract.progressPercentage,
       'criadoEm': contract.createdAt.toIso8601String(),
       'atualizadoEm': contract.updatedAt.toIso8601String(),
-
       'possuiArquivo': contract.hasFile,
       'nomeArquivo': contract.fileName,
       'urlArquivo': contract.fileUrl,
     });
+
+    _checkWebhookEvents(contract);
   }
 
   // ============================================================
@@ -85,22 +87,71 @@ class ContractServiceSupabase {
       'dataFimContrato': contract.endDate.toIso8601String(),
       'progressoPercentual': contract.progressPercentage,
       'atualizadoEm': DateTime.now().toIso8601String(),
-
       'possuiArquivo': contract.hasFile,
       'nomeArquivo': contract.fileName,
       'urlArquivo': contract.fileUrl,
     }).eq('idContrato', contract.id);
+
+    _checkWebhookEvents(contract);
   }
 
   // ============================================================
-  // DELETAR
+  // DELETAR CONTRATO
   // ============================================================
   Future<void> delete(String id) async {
     await supabase.from('tbdContrato').delete().eq('idContrato', id);
   }
 
   // ============================================================
-  // 🔄 MAPEAR DADOS SUPABASE → MODEL
+  // WEBHOOKS AUTOMÁTICOS
+  // ============================================================
+  void _checkWebhookEvents(Contract c) {
+    final now = DateTime.now();
+    final end = c.endDate;
+    final daysLeft = end.difference(now).inDays;
+
+    // 1️⃣ Concluído
+    if (c.progressPercentage == 100 || c.status == "completed") {
+      _webhook.send({
+        "event": "contract_completed",
+        "contractId": c.id,
+        "clientId": c.clientId,
+        "clientName": c.clientName,
+        "description": c.description,
+        "completedAt": now.toIso8601String(),
+      });
+      return;
+    }
+
+    // 2️⃣ Atrasado
+    if (end.isBefore(now)) {
+      _webhook.send({
+        "event": "contract_overdue",
+        "contractId": c.id,
+        "clientId": c.clientId,
+        "clientName": c.clientName,
+        "description": c.description,
+        "endDate": end.toIso8601String(),
+      });
+      return;
+    }
+
+    // 3️⃣ Faltam 3 dias
+    if (daysLeft == 3) {
+      _webhook.send({
+        "event": "contract_due_soon",
+        "contractId": c.id,
+        "clientId": c.clientId,
+        "clientName": c.clientName,
+        "description": c.description,
+        "endDate": end.toIso8601String(),
+        "daysLeft": 3,
+      });
+    }
+  }
+
+  // ============================================================
+  // MAPEAR DADOS SUPABASE → MODEL
   // ============================================================
   Map<String, dynamic> _fromSupabase(Map<String, dynamic> row) {
     return {
@@ -111,14 +162,12 @@ class ContractServiceSupabase {
       'status': row['statusContrato'],
       'assignedUserId': row['idUsuarioResponsavel'],
 
-      // Aqui são STRINGS — mas Contract.fromJson aceita DateTime OU String
       'startDate': row['dataInicioContrato'],
       'endDate': row['dataFimContrato'],
       'createdAt': row['criadoEm'],
       'updatedAt': row['atualizadoEm'],
 
       'progressPercentage': row['progressoPercentual'] ?? 0,
-
       'hasFile': row['possuiArquivo'] ?? false,
       'fileName': row['nomeArquivo'],
       'fileUrl': row['urlArquivo'],
@@ -126,7 +175,7 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-  // STATS PARA DASHBOARD
+  // ESTATÍSTICAS
   // ============================================================
   Future<Map<String, int>> getStats() async {
     final contracts = await getAll();
@@ -140,13 +189,12 @@ class ContractServiceSupabase {
       final bool isCompleted = c.progressPercentage >= 100;
       final bool isOverdue = now.isAfter(c.endDate) && !isCompleted;
 
-      if (isCompleted) {
+      if (isCompleted)
         completed++;
-      } else if (isOverdue) {
+      else if (isOverdue)
         overdue++;
-      } else {
+      else
         active++;
-      }
     }
 
     return {
