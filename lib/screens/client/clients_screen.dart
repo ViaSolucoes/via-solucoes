@@ -32,7 +32,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   // ============================================================
-  // 🔵 BUSCAR CLIENTES DO SUPABASE
+  // 🔵 BUSCAR CLIENTES
   // ============================================================
   Future<void> _loadClients() async {
     setState(() => _isLoading = true);
@@ -48,7 +48,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   // ============================================================
-  // 🔵 NAVEGAR PARA CRIAR CLIENTE
+  // 🔵 CRIAR CLIENTE
   // ============================================================
   void _navigateToCreate() async {
     final created = await Navigator.push(
@@ -63,7 +63,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   // ============================================================
-  // 🔵 NAVEGAR PARA EDITAR CLIENTE
+  // 🔵 EDITAR CLIENTE
   // ============================================================
   void _navigateToEdit(Client client) async {
     final updated = await Navigator.push(
@@ -98,23 +98,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   // ============================================================
-  // 🔵 ATIVAR / DESATIVAR CLIENTE
+  // 🔵 ALTERAR STATUS (ATIVAR/DESATIVAR)
   // ============================================================
-  Future<void> _toggleClientStatus(Client client) async {
+  Future<void> _toggleClientStatus(Client client, bool newValue) async {
     final updated = client.copyWith(
-      isActive: !client.isActive,
+      isActive: newValue,
       updatedAt: DateTime.now(),
     );
 
     try {
       await _clientService.update(updated);
-      _loadClients();
 
-      _showSnackBar(updated.isActive
-          ? "Cliente ativado."
-          : "Cliente desativado.");
+      setState(() {
+        final index = _clients.indexWhere((c) => c.id == client.id);
+        if (index != -1) {
+          _clients[index] = updated;
+        }
+      });
+
+      _showSnackBar(
+        newValue ? "Cliente ativado." : "Cliente desativado.",
+      );
     } catch (e) {
-      print("❌ Erro ao atualizar status: $e");
+      print("❌ Erro ao alterar status: $e");
     }
   }
 
@@ -126,39 +132,38 @@ class _ClientsScreenState extends State<ClientsScreen> {
     required String message,
   }) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(title),
-        content: Text(message),
-        shape:
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancelar"),
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Text(title),
+            content: Text(message),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancelar"),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ViaColors.error,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Excluir"),
+              ),
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ViaColors.error,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Excluir"),
-          ),
-        ],
-      ),
-    ) ??
+        ) ??
         false;
   }
 
   // ============================================================
-  // 🔵 FILTRAR CLIENTES (pesquisa + ativos)
+  // 🔵 FILTRO
   // ============================================================
   List<Client> get _filteredClients {
     return _clients.where((c) {
-      final matchSearch = c.companyName
-          .toLowerCase()
-          .contains(_searchQuery.toLowerCase());
+      final matchSearch =
+          c.companyName.toLowerCase().contains(_searchQuery.toLowerCase());
 
       final matchStatus = !_showActiveOnly || c.isActive;
 
@@ -193,7 +198,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
         title: const Text("Clientes"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: ViaColors.primary),
+            icon:
+                const Icon(Icons.add_circle_outline, color: ViaColors.primary),
             onPressed: _navigateToCreate,
           ),
         ],
@@ -206,60 +212,56 @@ class _ClientsScreenState extends State<ClientsScreen> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Column(
-            children: [
-              // 🔍 Campo de busca
-              ClientSearchField(
-                onChanged: (value) {
-                  setState(() => _searchQuery = value);
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // 🔘 Filtro "Apenas ativos"
-              ClientFilterBar(
-                showActiveOnly: _showActiveOnly,
-                onToggle: (value) {
-                  setState(() => _showActiveOnly = value);
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // 📋 Lista
-              Expanded(
-                child: filtered.isEmpty
-                    ? const Center(
-                  child: Text(
-                    "Nenhum cliente encontrado.",
-                    style:
-                    TextStyle(color: ViaColors.textSecondary),
-                  ),
-                )
-                    : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final client = filtered[index];
-                    return ClientCard(
-                      client: client,
-                      onEdit: () => _navigateToEdit(client),
-                      onDelete: () => _deleteClient(client.id),
-                      onToggleStatus: () =>
-                          _toggleClientStatus(client),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ClientDetailScreen(client: client),
-                          ),
-                        );
+                  children: [
+                    ClientSearchField(
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value);
                       },
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 16),
+                    ClientFilterBar(
+                      showActiveOnly: _showActiveOnly,
+                      onToggle: (value) {
+                        setState(() => _showActiveOnly = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "Nenhum cliente encontrado.",
+                                style:
+                                    TextStyle(color: ViaColors.textSecondary),
+                              ),
+                            )
+                          : ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final client = filtered[index];
+                                return ClientCard(
+                                  client: client,
+                                  onEdit: () => _navigateToEdit(client),
+                                  onDelete: () => _deleteClient(client.id),
+                                  onToggleStatus: (newValue) =>
+                                      _toggleClientStatus(
+                                          client, newValue), // FIX CORRETO
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ClientDetailScreen(client: client),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

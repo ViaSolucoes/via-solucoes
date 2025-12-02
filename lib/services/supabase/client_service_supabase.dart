@@ -46,6 +46,7 @@ class ClientServiceSupabase {
       'enderecoEmpresa': client.address,
       'setorEmpresa': client.department,
       'observacoesEmpresa': client.notes,
+      'ativoEmpresa': client.isActive, 
       'criadoEm': client.createdAt.toIso8601String(),
       'atualizadoEm': client.updatedAt.toIso8601String(),
     });
@@ -70,53 +71,60 @@ class ClientServiceSupabase {
     await supabase
         .from('tbdEmpresa')
         .update({
-      'nomeEmpresa': client.companyName,
-      'rodoviaEmpresa': client.highway,
-      'cnpjEmpresa': client.cnpj,
-      'enderecoEmpresa': client.address,
-      'setorEmpresa': client.department,
-      'observacoesEmpresa': client.notes,
-      'atualizadoEm': DateTime.now().toIso8601String(),
-    })
+          'nomeEmpresa': client.companyName,
+          'rodoviaEmpresa': client.highway,
+          'cnpjEmpresa': client.cnpj,
+          'enderecoEmpresa': client.address,
+          'setorEmpresa': client.department,
+          'observacoesEmpresa': client.notes,
+          'ativoEmpresa': client.isActive, 
+          'atualizadoEm': DateTime.now().toIso8601String(),
+        })
         .eq('idEmpresa', client.id);
 
     // 2️⃣ Atualizar responsável
     await supabase
         .from('tbdResponsavelEmpresa')
         .update({
-      'nomeResponsavel': client.contactPerson,
-      'cargoResponsavel': client.contactRole,
-      'emailResponsavel': client.email,
-      'telefoneResponsavel': client.phone,
-      'atualizadoEm': DateTime.now().toIso8601String(),
-    })
+          'nomeResponsavel': client.contactPerson,
+          'cargoResponsavel': client.contactRole,
+          'emailResponsavel': client.email,
+          'telefoneResponsavel': client.phone,
+          'atualizadoEm': DateTime.now().toIso8601String(),
+        })
         .eq('idEmpresa', client.id);
   }
 
   // =====================================================
-  // 🔵 DELETAR CLIENTE (empresa + responsável)
+  // 🔵 ALTERAR APENAS STATUS (ATIVO / DESATIVADO)
+  // =====================================================
+  Future<void> updateClientStatus(String clientId, bool isActive) async {
+    await supabase
+        .from('tbdEmpresa')
+        .update({
+          'ativoEmpresa': isActive,
+          'atualizadoEm': DateTime.now().toIso8601String(),
+        })
+        .eq('idEmpresa', clientId);
+  }
+
+  // =====================================================
+  // 🔵 DELETAR CLIENTE
   // =====================================================
   Future<void> delete(String id) async {
     try {
-      await supabase
-          .from("tbdEmpresa")
-          .delete()
-          .eq("idEmpresa", id);
+      await supabase.from("tbdEmpresa").delete().eq("idEmpresa", id);
     } catch (e) {
       final errorMessage = e.toString();
 
-      // ERRO DE FOREIGN KEY – CLIENTE TEM CONTRATOS
       if (errorMessage.contains("fk_contrato_empresa")) {
         throw Exception(
-            "Não é possível excluir este cliente, pois existem contratos vinculados a ele."
-        );
+            "Não é possível excluir este cliente, pois existem contratos vinculados a ele.");
       }
 
-      // OUTROS ERROS
       throw Exception("Erro ao excluir cliente: $e");
     }
   }
-
 
   // =====================================================
   // 🧠 MAPEAR SUPABASE → Client.fromJson()
@@ -134,8 +142,7 @@ class ClientServiceSupabase {
       'notes': row['observacoesEmpresa'],
       'createdAt': row['criadoEm'],
       'updatedAt': row['atualizadoEm'],
-
-      // responsável
+      'isActive': row['ativoEmpresa'], 
       'contactPerson': resp?['nomeResponsavel'],
       'contactRole': resp?['cargoResponsavel'],
       'email': resp?['emailResponsavel'],
