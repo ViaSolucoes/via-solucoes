@@ -3,7 +3,10 @@ class Contract {
   final String clientId;
   final String clientName;
   final String description;
+
+  // Status legado (não usado)
   final String status;
+
   final String assignedUserId;
   final DateTime startDate;
   final DateTime endDate;
@@ -11,7 +14,7 @@ class Contract {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // 📌 Campos opcionais de arquivo
+  // Arquivos
   final String? fileUrl;
   final String? fileName;
   final bool hasFile;
@@ -33,44 +36,73 @@ class Contract {
     this.hasFile = false,
   });
 
+  // ============================================================
+  // 🔥 Status calculado
+  // ============================================================
+  String get computedStatus {
+    final now = DateTime.now();
+
+    if (progressPercentage >= 100) return 'completed';
+    if (endDate.isBefore(now)) return 'overdue';
+    return 'active';
+  }
+
+  // ============================================================
+  // 🔄 JSON → MODEL (PARSE SEGURO)
+  // ============================================================
+  factory Contract.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
+      if (value is String && value.isNotEmpty) {
+        return DateTime.tryParse(value) ?? DateTime.now();
+      }
+      return DateTime.now();
+    }
+
+    return Contract(
+      id: json['id'] ?? '',
+      clientId: json['clientId'] ?? '',
+      clientName: json['clientName'] ?? '',
+      description: json['description'] ?? '',
+      status: json['status'] ?? '',
+      assignedUserId: json['assignedUserId'] ?? '',
+
+      startDate: parseDate(json['startDate']),
+      endDate: parseDate(json['endDate']),
+      createdAt: parseDate(json['createdAt']),
+      updatedAt: parseDate(json['updatedAt']),
+
+      progressPercentage: (json['progressPercentage'] ?? 0).toDouble(),
+      fileUrl: json['fileUrl'],
+      fileName: json['fileName'],
+      hasFile: json['hasFile'] ?? false,
+    );
+  }
+
+  // ============================================================
+  // MODEL → JSON
+  // ============================================================
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'clientId': clientId,
-    'clientName': clientName,
-    'description': description,
-    'status': status,
-    'assignedUserId': assignedUserId,
-    'startDate': startDate.toIso8601String(),
-    'endDate': endDate.toIso8601String(),
-    'progressPercentage': progressPercentage,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
-    'fileUrl': fileUrl,
-    'fileName': fileName,
-    'hasFile': hasFile,
-  };
+        'id': id,
+        'clientId': clientId,
+        'clientName': clientName,
+        'description': description,
+        'status': status,
+        'assignedUserId': assignedUserId,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'progressPercentage': progressPercentage,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'fileUrl': fileUrl,
+        'fileName': fileName,
+        'hasFile': hasFile,
+      };
 
-  factory Contract.fromJson(Map<String, dynamic> json) => Contract(
-    id: json['id'] ?? '',
-    clientId: json['clientId'] ?? '',
-    clientName: json['clientName'] ?? '',
-    description: json['description'] ?? '',
-    status: json['status'] ?? '',
-    assignedUserId: json['assignedUserId'] ?? '',
-    startDate:
-    DateTime.tryParse(json['startDate'] ?? '') ?? DateTime.now(),
-    endDate: DateTime.tryParse(json['endDate'] ?? '') ?? DateTime.now(),
-    progressPercentage:
-    (json['progressPercentage'] ?? 0).toDouble(),
-    createdAt:
-    DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-    updatedAt:
-    DateTime.tryParse(json['updatedAt'] ?? '') ?? DateTime.now(),
-    fileUrl: json['fileUrl'],
-    fileName: json['fileName'],
-    hasFile: json['hasFile'] ?? false,
-  );
-
+  // ============================================================
+  // COPY WITH
+  // ============================================================
   Contract copyWith({
     String? id,
     String? clientId,

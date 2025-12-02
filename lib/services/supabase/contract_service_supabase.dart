@@ -4,7 +4,7 @@ import 'package:viasolucoes/services/webhook_service.dart';
 
 class ContractServiceSupabase {
   final supabase = Supabase.instance.client;
-  final _webhook = WebhookService(); // Serviço central de webhook
+  final _webhook = WebhookService();
 
   // ============================================================
   // LISTAR TODOS
@@ -78,9 +78,7 @@ class ContractServiceSupabase {
   // ATUALIZAR CONTRATO
   // ============================================================
   Future<void> update(Contract contract) async {
-    await supabase
-        .from('tbdContrato')
-        .update({
+    await supabase.from('tbdContrato').update({
       'idEmpresa': contract.clientId,
       'descricaoContrato': contract.description,
       'statusContrato': contract.status,
@@ -92,8 +90,7 @@ class ContractServiceSupabase {
       'possuiArquivo': contract.hasFile,
       'nomeArquivo': contract.fileName,
       'urlArquivo': contract.fileUrl,
-    })
-        .eq('idContrato', contract.id);
+    }).eq('idContrato', contract.id);
 
     _checkWebhookEvents(contract);
   }
@@ -106,16 +103,14 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-  // DISPARAR WEBHOOKS
+  // WEBHOOKS AUTOMÁTICOS
   // ============================================================
   void _checkWebhookEvents(Contract c) {
     final now = DateTime.now();
     final end = c.endDate;
     final daysLeft = end.difference(now).inDays;
 
-    // ------------------------------------------------------------
-    // 1️⃣ CONTRATO CONCLUÍDO (progresso 100% OU status completed)
-    // ------------------------------------------------------------
+    // 1️⃣ Concluído
     if (c.progressPercentage == 100 || c.status == "completed") {
       _webhook.send({
         "event": "contract_completed",
@@ -128,9 +123,7 @@ class ContractServiceSupabase {
       return;
     }
 
-    // ------------------------------------------------------------
-    // 2️⃣ CONTRATO ATRASADO
-    // ------------------------------------------------------------
+    // 2️⃣ Atrasado
     if (end.isBefore(now)) {
       _webhook.send({
         "event": "contract_overdue",
@@ -143,9 +136,7 @@ class ContractServiceSupabase {
       return;
     }
 
-    // ------------------------------------------------------------
-    // 3️⃣ Faltam exatos 3 dias
-    // ------------------------------------------------------------
+    // 3️⃣ Faltam 3 dias
     if (daysLeft == 3) {
       _webhook.send({
         "event": "contract_due_soon",
@@ -156,12 +147,11 @@ class ContractServiceSupabase {
         "endDate": end.toIso8601String(),
         "daysLeft": 3,
       });
-      return;
     }
   }
 
   // ============================================================
-  // MAPEAR DADOS DO SUPABASE → MODEL
+  // MAPEAR DADOS SUPABASE → MODEL
   // ============================================================
   Map<String, dynamic> _fromSupabase(Map<String, dynamic> row) {
     return {
@@ -171,11 +161,13 @@ class ContractServiceSupabase {
       'description': row['descricaoContrato'],
       'status': row['statusContrato'],
       'assignedUserId': row['idUsuarioResponsavel'],
+
       'startDate': row['dataInicioContrato'],
       'endDate': row['dataFimContrato'],
-      'progressPercentage': row['progressoPercentual'] ?? 0,
       'createdAt': row['criadoEm'],
       'updatedAt': row['atualizadoEm'],
+
+      'progressPercentage': row['progressoPercentual'] ?? 0,
       'hasFile': row['possuiArquivo'] ?? false,
       'fileName': row['nomeArquivo'],
       'fileUrl': row['urlArquivo'],
@@ -183,29 +175,26 @@ class ContractServiceSupabase {
   }
 
   // ============================================================
-  // STATS PARA DASHBOARD
+  // ESTATÍSTICAS
   // ============================================================
   Future<Map<String, int>> getStats() async {
-    final response =
-    await supabase.from('tbdContrato').select('statusContrato');
+    final contracts = await getAll();
+    final now = DateTime.now();
 
     int active = 0;
     int overdue = 0;
     int completed = 0;
 
-    for (final row in (response as List)) {
-      final status = (row['statusContrato'] ?? '').toString();
-      switch (status) {
-        case 'active':
-          active++;
-          break;
-        case 'overdue':
-          overdue++;
-          break;
-        case 'completed':
-          completed++;
-          break;
-      }
+    for (final c in contracts) {
+      final bool isCompleted = c.progressPercentage >= 100;
+      final bool isOverdue = now.isAfter(c.endDate) && !isCompleted;
+
+      if (isCompleted)
+        completed++;
+      else if (isOverdue)
+        overdue++;
+      else
+        active++;
     }
 
     return {

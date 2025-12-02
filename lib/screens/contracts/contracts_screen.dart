@@ -18,7 +18,6 @@ class ContractsScreen extends StatefulWidget {
 
 class _ContractsScreenState extends State<ContractsScreen> {
   final _contractService = ContractServiceSupabase();
-
   final TextEditingController _searchController = TextEditingController();
 
   List<Contract> _contracts = [];
@@ -40,7 +39,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
   }
 
   // ============================================================
-  // 🔵 CARREGAR CONTRATOS DO SUPABASE
+  // CARREGAR CONTRATOS
   // ============================================================
   Future<void> _loadContracts() async {
     setState(() => _isLoading = true);
@@ -48,7 +47,6 @@ class _ContractsScreenState extends State<ContractsScreen> {
     try {
       final all = await _contractService.getAll();
 
-      // Se o serviço já ordenar, isso aqui é extra, mas não atrapalha
       all.sort((a, b) => a.endDate.compareTo(b.endDate));
 
       _contracts = all;
@@ -60,23 +58,27 @@ class _ContractsScreenState extends State<ContractsScreen> {
     setState(() => _isLoading = false);
   }
 
+  // ============================================================
+  // FILTRAGEM USANDO computedStatus
+  // ============================================================
   void _applyFilter() {
     List<Contract> filtered = _contracts;
 
     switch (_selectedFilter) {
       case ContractFilter.active:
-        filtered = filtered.where((c) => c.status == 'active').toList();
+        filtered = filtered.where((c) => c.computedStatus == 'active').toList();
         break;
       case ContractFilter.overdue:
-        filtered = filtered.where((c) => c.status == 'overdue').toList();
+        filtered = filtered.where((c) => c.computedStatus == 'overdue').toList();
         break;
       case ContractFilter.completed:
-        filtered = filtered.where((c) => c.status == 'completed').toList();
+        filtered = filtered.where((c) => c.computedStatus == 'completed').toList();
         break;
       case ContractFilter.all:
         break;
     }
 
+    // Busca
     final query = _searchController.text.trim().toLowerCase();
     if (query.isNotEmpty) {
       filtered = filtered.where((c) {
@@ -109,6 +111,9 @@ class _ContractsScreenState extends State<ContractsScreen> {
     }
   }
 
+  // ============================================================
+  // CORES E LABELS DO STATUS
+  // ============================================================
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
@@ -148,6 +153,9 @@ class _ContractsScreenState extends State<ContractsScreen> {
     }
   }
 
+  // ============================================================
+  // UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     final background = const Color(0xFFF4F5F7);
@@ -169,7 +177,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
       floatingActionButton: _buildFab(),
       body: Column(
         children: [
-          // BUSCA
+          // Busca
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
             child: Container(
@@ -195,53 +203,52 @@ class _ContractsScreenState extends State<ContractsScreen> {
                     color: Colors.grey.shade500,
                   ),
                   contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
+                      const EdgeInsets.symmetric(horizontal: 0, vertical: 14),
                 ),
               ),
             ),
           ),
 
-          // FILTROS
+          // Filtros
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: _buildFiltersRow(),
           ),
 
-          // LISTA
+          // Lista
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredContracts.isEmpty
-                ? Center(
-              child: Text(
-                'Nenhum contrato encontrado.',
-                style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 15,
-                ),
-              ),
-            )
-                : RefreshIndicator(
-              onRefresh: _loadContracts,
-              child: ListView.builder(
-                padding:
-                const EdgeInsets.fromLTRB(20, 4, 20, 80),
-                itemCount: _filteredContracts.length,
-                itemBuilder: (context, index) {
-                  final contract = _filteredContracts[index];
-                  return _buildContractCard(contract, index);
-                },
-              ),
-            ),
+                    ? Center(
+                        child: Text(
+                          'Nenhum contrato encontrado.',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 15,
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadContracts,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 80),
+                          itemCount: _filteredContracts.length,
+                          itemBuilder: (context, index) {
+                            final contract = _filteredContracts[index];
+                            return _buildContractCard(contract, index);
+                          },
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // WIDGETS DE UI
-  // ---------------------------------------------------------------------------
+  // ============================================================
+  // COMPONENTES
+  // ============================================================
 
   Widget _buildFiltersRow() {
     return Container(
@@ -264,8 +271,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 decoration: BoxDecoration(
                   color: selected
                       ? ViaColors.primary.withOpacity(0.12)
@@ -277,11 +283,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
                     _filterLabel(filter),
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight:
-                      selected ? FontWeight.w600 : FontWeight.w500,
-                      color: selected
-                          ? ViaColors.primary
-                          : ViaColors.textPrimary,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? ViaColors.primary : ViaColors.textPrimary,
                     ),
                   ),
                 ),
@@ -294,7 +297,8 @@ class _ContractsScreenState extends State<ContractsScreen> {
   }
 
   Widget _buildContractCard(Contract contract, int index) {
-    final statusColor = _getStatusColor(contract.status);
+    final status = contract.computedStatus;
+    final statusColor = _getStatusColor(status);
 
     return GestureDetector(
       onTap: () {
@@ -322,17 +326,16 @@ class _ContractsScreenState extends State<ContractsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // CABEÇALHO: NOME + EDITAR
+            // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
                     contract.clientName,
-                    style:
-                    Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -349,8 +352,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
                     final updated = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            EditContractScreen(contract: contract),
+                        builder: (_) => EditContractScreen(contract: contract),
                       ),
                     );
                     if (updated == true) {
@@ -363,7 +365,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
 
             const SizedBox(height: 6),
 
-            // DESCRIÇÃO
+            // Descrição
             Text(
               contract.description,
               maxLines: 2,
@@ -376,7 +378,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
 
             const SizedBox(height: 12),
 
-            // LINHA: DATA + STATUS
+            // Data + Status
             Row(
               children: [
                 Icon(
@@ -394,7 +396,7 @@ class _ContractsScreenState extends State<ContractsScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  _getStatusLabel(contract.status),
+                  _getStatusLabel(status),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -404,8 +406,9 @@ class _ContractsScreenState extends State<ContractsScreen> {
               ],
             ),
 
-            // PROGRESSO DO CONTRATO
             const SizedBox(height: 12),
+
+            // Barra de progresso
             Row(
               children: [
                 Expanded(
