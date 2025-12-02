@@ -7,12 +7,13 @@ class UserServiceSupabase {
   // 🔵 CRIA PERFIL DO USUÁRIO NA TABELA
   Future<void> createProfile(ViaSolutionsUser user) async {
     await supabase.from('tbdUsuario').insert({
-      'idUsuario': user.id,                     // mesmo ID do auth
+      'idUsuario': user.id,
       'nomeUsuario': user.name,
       'emailUsuario': user.email,
       'roleUsuario': user.role,
-      'telefone': user.phone,                  // 🆕 novo campo
-      'endereco': user.address,                // 🆕 novo campo
+      'telefone': user.phone,
+      'endereco': user.address,
+      'webhookUrl': user.webhookUrl, // 🆕 NOVO CAMPO
       'criadoEm': user.createdAt.toIso8601String(),
       'atualizadoEm': user.updatedAt.toIso8601String(),
     });
@@ -33,8 +34,9 @@ class UserServiceSupabase {
       'name': data['nomeUsuario'],
       'email': data['emailUsuario'],
       'role': data['roleUsuario'],
-      'phone': data['telefone'],                // 🆕 novo campo
-      'address': data['endereco'],              // 🆕 novo campo
+      'phone': data['telefone'],
+      'address': data['endereco'],
+      'webhookUrl': data['webhookUrl'], // 🆕 NOVO CAMPO
       'createdAt': data['criadoEm'],
       'updatedAt': data['atualizadoEm'],
     });
@@ -48,10 +50,10 @@ class UserServiceSupabase {
       'nomeUsuario': user.name,
       'emailUsuario': user.email,
       'roleUsuario': user.role,
-      'telefone': user.phone,                // 🆕 novo campo
-      'endereco': user.address,              // 🆕 novo campo
+      'telefone': user.phone,
+      'endereco': user.address,
+      'webhookUrl': user.webhookUrl, // 🆕 NOVO CAMPO
       'atualizadoEm': DateTime.now().toIso8601String(),
-    })
-        .eq('idUsuario', user.id);
+    }).eq('idUsuario', user.id);
   }
 }
